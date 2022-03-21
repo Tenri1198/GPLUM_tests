@@ -279,6 +279,72 @@ void particleCrossingOMF(Tpsys & pp,
     //edisp_loc += (mechEnergy_before - mechEnergy_after);
     edisp += PS::Comm::getSum(edisp_loc);
 }
+
+template <class Tpsys>
+void massChangeBeforeCollision(Tpsys & pp,
+                   PS::S32 n_col,
+                   PS::F64 & edisp)
+{   
+    const PS::S32 n_loc = pp.getNumberOfParticleLocal();
+    PS::F64 mass_temp[n_loc];   //質量が変更される前の粒子質量を格納する配列
+    PS::S32 pp_id[n_loc];        //質量が変更される前のIDを格納する配列
+    PS::F64 delta_mass[n_loc];   //質量変化の差分を格納する配列
+    for(PS::S32 i=0; i<n_loc; i++)  //質量が変更される前の粒子質量を格納する
+    {
+        mass_temp[i] = pp[i].mass;
+        pp_id[i]  = pp[i].id;
+    }
+    #pragma omp parallel for reduction (-:edisp_loc)  //粒子の衝突合体による粒子質量の変更
+    for ( PS::S32 i=0; i<n_loc; i++ ){
+        bool flag_merge = 1;
+        if ( pp[i].isMerged ) {
+            for ( PS::S32 j=0; j<n_loc; j++ ){              
+                if ( pp[j].id == pp[i].id && i != j ){
+                    PS::F64 mi = pp[i].mass;
+                    PS::F64 mj = pp[j].mass;
+                    PS::F64vec vrel = pp[j].vel - pp[i].vel;
+                    std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h before [target:impactor]"<<pp[i].id<<":"<<pp[i].flag_gd<<" "<<pp[i].mass<<" "<<pp[j].id<<":"<<pp[j].flag_gd<<" "<<pp[j].mass<<std::endl;
+                    if(pp[i].flag_gd==0 && pp[j].flag_gd==1)
+                    {  
+                        pp[j].mass = mj*1.844028699792144e-09/5.029e-19; 
+                        //pp[i].mass += mj;
+                    }
+                    else if(pp[i].flag_gd==1 && pp[j].flag_gd==0 && flag_merge == 1)
+                    {   
+                        mi *= 1.844028699792144e-09/5.029e-19;
+                        pp[i].mass = pp[i].mass*1.844028699792144e-09/5.029e-19;
+                        //pp[i].mass += mj;
+                        flag_merge = 0;
+                    }
+                }
+            }
+        }
+    }
+    for(PS::S32 i=0; i<n_loc; i++)//粒子質量の変更に関するエネルギー処理をここに書く
+    {   
+        delta_mass[i] = (pp[i].mass-mass_temp[i]);
+        if(delta_mass[i])  //質量が増えたわけだから、edisp_locには足していく必要がある(はず)
+        {
+            std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h by crossing OMF(Energy change) id:"<<pp[i].id<<" mass:"<<pp[i].mass<<" mass:"<<mass_temp[i]<<" index:"<<pp_id[i]<<std::endl;
+            edisp_loc += 0.5 * delta_mass[i] * pp[i].vel * pp[i].vel;
+		    edisp_loc += delta_mass[i] * pp[i].phi_s;
+		    edisp_loc += delta_mass[i] * pp[i].phi_d;
+		    edisp_loc += delta_mass[i] * pp[i].phi;
+        }
+        for(PS::S32 j=0; j<i; j++)
+        {
+	        PS::F64 massi = delta_mass[i];
+	        PS::F64 massj = delta_mass[j];
+	        PS::F64vec posi = pp[i].pos;
+		    PS::F64vec posj = pp[j].pos;
+		    PS::F64vec dr = posi - posj;
+            PS::F64 eps2 = FP_t::eps2;
+		    PS::F64 rinv = 1./sqrt(dr*dr+eps2);
+		    edisp_loc +=  massi * massj * rinv;
+		}
+    }
+    edisp += PS::Comm::getSum(edisp_loc);
+}
 template <class Tpsys>
 void MergeParticle(Tpsys & pp,
                    PS::S32 n_col,
@@ -291,7 +357,7 @@ void MergeParticle(Tpsys & pp,
     PS::F64 mechEnergy_before = 0.;  //粒子の質量変化が起こる前の系の力学的エネルギー
     PS::F64 mechEnergy_after = 0.;  //粒子の質量変化が起こった後の系の力学的エネルギー
     //mechEnergy_before = calcTotalEnergy(pp);
-#pragma omp parallel for reduction (-:edisp_loc)  //粒子の衝突合体による粒子質量の変更
+#pragma omp parallel for reduction (-:edisp_loc)  //粒子の衝突合体処理
     for ( PS::S32 i=0; i<n_loc; i++ ){
         bool flag_merge = 1;
         if ( pp[i].isMerged ) {
@@ -300,7 +366,7 @@ void MergeParticle(Tpsys & pp,
                     PS::F64 mi = pp[i].mass;
                     PS::F64 mj = pp[j].mass;
                     PS::F64vec vrel = pp[j].vel - pp[i].vel;
-                    std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h before [target:impactor]"<<pp[i].id<<":"<<pp[i].flag_gd<<" "<<pp[i].mass<<" "<<pp[j].id<<":"<<pp[j].flag_gd<<" "<<pp[j].mass<<std::endl;
+                    /*//std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h before [target:impactor]"<<pp[i].id<<":"<<pp[i].flag_gd<<" "<<pp[i].mass<<" "<<pp[j].id<<":"<<pp[j].flag_gd<<" "<<pp[j].mass<<std::endl;
                     if(pp[i].flag_gd==0 && pp[j].flag_gd==1)
                     {  
                         mj = mj*1.844028699792144e-09/5.029e-19; 
@@ -313,6 +379,7 @@ void MergeParticle(Tpsys & pp,
                         //pp[i].mass += mj;
                         flag_merge = 0;
                     }
+                    */
                     pp[i].mass += mj;
                     pp[i].vel = ( mi*pp[i].vel + mj*pp[j].vel )/(mi+mj);
 		            pp[i].flag_gd &= pp[j].flag_gd;
