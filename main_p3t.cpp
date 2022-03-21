@@ -704,7 +704,7 @@ int main(int argc, char *argv[])
         PS::F64 de_d = ( dekin_d + dephi_d_d + dephi_s_d - edisp_d ) / e_init.etot;
         de_d_cum += de_d;
 #endif
-
+        bool mass_flag = 0;
         ///////////////
         /*   Merge   */
         ///////////////
@@ -721,12 +721,12 @@ int main(int argc, char *argv[])
         ////////////////
         /*   OMF通過  */  //少し考えるとわかることですが、これを入れないとmergeParticleでまとめてOMFの処理まですると、永遠に衝突が起こらない系になります。
         ///////////////
-        particleCrossingOMF(system_grav, e_now.edisp); //ここでparticleCrossingOMFの中の処理で質量変化があった際にmainでrecalculate soft
+        mass_flag = particleCrossingOMF(system_grav, e_now.edisp); //ここでparticleCrossingOMFの中の処理で質量変化があった際にmainでrecalculate softに計算を回す
 
         ///////////////////////////
         /*   Re-Calculate Soft   */
         ///////////////////////////
-        if ( n_col || n_remove || istep % reset_step == reset_step-1 ) {
+        if ( n_col || n_remove || istep % reset_step == reset_step-1 || mass_flag) {
             if( istep % reset_step == reset_step-1 ) {
 #ifdef USE_POLAR_COORDINATE
                 setPosPolar(system_grav);
