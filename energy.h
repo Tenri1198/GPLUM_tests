@@ -63,7 +63,8 @@ public:
     }
     
     PS::F64 calcEnergyError(const Energy e_init){
-        return (etot - e_init.etot - edisp)/e_init.etot;
+        //return (etot - e_init.etot - edisp)/e_init.etot;
+        return (etot - e_init.etot - edisp)/etot;   //補正項が正しく計算されているかのチェックにはなっている
     }
 };
 
