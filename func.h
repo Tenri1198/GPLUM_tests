@@ -212,9 +212,10 @@ template<class Tpsys>
             return mechEnergy;
         }
 template <class Tpsys>
-void particleCrossingOMF(Tpsys & pp,
+bool particleCrossingOMF(Tpsys & pp,
                    PS::F64 & edisp)
-{
+{   
+    bool mass_flag = 0;
     const PS::S32 n_loc = pp.getNumberOfParticleLocal();
     PS::F64 edisp_loc = 0.;
     //PS::F64 mechEnergy_before = 0.;  //粒子の質量変化が起こる前の系の力学的エネルギー
@@ -240,6 +241,7 @@ void particleCrossingOMF(Tpsys & pp,
         PS::F64 rho_dust = 1.0/sun_mass*AU*AU*AU; //ダスト密度(微惑星まで成長した場合)
         if(r<7.0 && pp[i].flag_gd==1) //OMFを通過した粒子への処理
         {
+            mass_flag = 1;
             std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h by crossing OMF(before) id:"<<pp[i].id<<" distance:"<<r<<" mass:"<<pp[i].mass<<" size:"<<pp[i].r_planet<<" flag:"<<pp[i].flag_gd<<std::endl;
 		    pp[i].flag_gd=0;
 		    pp[i].mass = pp[i].mass*1.844028699792144e-09/5.029e-19;
@@ -278,6 +280,7 @@ void particleCrossingOMF(Tpsys & pp,
     //力学的エネルギーの増減をedispに反映させる(差の分を計算する)
     //edisp_loc += (mechEnergy_before - mechEnergy_after);
     edisp += PS::Comm::getSum(edisp_loc);
+    return mass_flag;
 }
 
 template <class Tpsys>
