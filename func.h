@@ -286,6 +286,7 @@ void massChangeBeforeCollision(Tpsys & pp,
                    PS::F64 & edisp)
 {   
     const PS::S32 n_loc = pp.getNumberOfParticleLocal();
+    PS::F64 edisp_loc = 0.;
     PS::F64 mass_temp[n_loc];   //質量が変更される前の粒子質量を格納する配列
     PS::S32 pp_id[n_loc];        //質量が変更される前のIDを格納する配列
     PS::F64 delta_mass[n_loc];   //質量変化の差分を格納する配列
@@ -325,7 +326,7 @@ void massChangeBeforeCollision(Tpsys & pp,
         delta_mass[i] = (pp[i].mass-mass_temp[i]);
         if(delta_mass[i])  //質量が増えたわけだから、edisp_locには足していく必要がある(はず)
         {
-            std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h by crossing OMF(Energy change) id:"<<pp[i].id<<" mass:"<<pp[i].mass<<" mass:"<<mass_temp[i]<<" index:"<<pp_id[i]<<std::endl;
+            std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h by mass change by merging(Energy change) id:"<<pp[i].id<<" mass:"<<pp[i].mass<<" mass:"<<mass_temp[i]<<" index:"<<pp_id[i]<<std::endl;
             edisp_loc += 0.5 * delta_mass[i] * pp[i].vel * pp[i].vel;
 		    edisp_loc += delta_mass[i] * pp[i].phi_s;
 		    edisp_loc += delta_mass[i] * pp[i].phi_d;
