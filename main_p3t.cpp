@@ -704,19 +704,24 @@ int main(int argc, char *argv[])
         PS::F64 de_d = ( dekin_d + dephi_d_d + dephi_s_d - edisp_d ) / e_init.etot;
         de_d_cum += de_d;
 #endif
-        ////////////////
-        /*   OMF通過  */  //少し考えるとわかることですが、これを入れないとmergeParticleでまとめてOMFの処理まですると、永遠に衝突が起こらない系になります。
-        ///////////////
-        particleCrossingOMF(system_grav, e_now.edisp); //ここでparticleCrossingOMFの中の処理で質量変化があった際にmainでrecalculate softに入る必要があるかも？
+
         ///////////////
         /*   Merge   */
         ///////////////
-        if ( n_col ) {
+        if ( n_col ) {   //衝突時の質量変化によるエネルギー散逸を計算
+            massChangeBeforeCollision(system_grav, n_col, e_now.edisp)
+        }
+        if ( n_col ) {//衝突時の粒子の合体によるエネルギー散逸の計算
             MergeParticle(system_grav, n_col, e_now.edisp);
         }
 
         // Remove Particle Out Of Boundary
         n_remove = removeParticlesOutOfBoundary(system_grav, e_now.edisp, r_max, r_min, fout_rem);
+
+        ////////////////
+        /*   OMF通過  */  //少し考えるとわかることですが、これを入れないとmergeParticleでまとめてOMFの処理まですると、永遠に衝突が起こらない系になります。
+        ///////////////
+        particleCrossingOMF(system_grav, e_now.edisp); //ここでparticleCrossingOMFの中の処理で質量変化があった際にmainでrecalculate soft
 
         ///////////////////////////
         /*   Re-Calculate Soft   */
