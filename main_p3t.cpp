@@ -709,7 +709,7 @@ int main(int argc, char *argv[])
         /*   Merge   */
         ///////////////
         if ( n_col ) {   //衝突時の質量変化によるエネルギー散逸を計算
-            massChangeBeforeCollision(system_grav, n_col, e_now.edisp)
+            massChangeBeforeCollision(system_grav, n_col, e_now.edisp);
         }
         if ( n_col ) {//衝突時の粒子の合体によるエネルギー散逸の計算
             MergeParticle(system_grav, n_col, e_now.edisp);
