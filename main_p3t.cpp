@@ -70,7 +70,6 @@ using Tree_t = PS::TreeForForce<MY_SEARCH_MODE, Force_t, EPI_t, EPJ_t, Moment_t,
 
 int main(int argc, char *argv[])
 {
-    PS::CommInfo comm_info;
     PS::Initialize(argc, argv); 
     showGplumVersion(GPLUMVERSION);
     //PS::Comm::barrier();
@@ -710,10 +709,10 @@ int main(int argc, char *argv[])
         /*   OMF通過  */  //少し考えるとわかることですが、これを入れないとmergeParticleでまとめてOMFの処理まですると、永遠に衝突が起こらない系になります。
         ///////////////
         PS::S32 mass_flag = (particleCrossingOMF(system_grav, e_now.edisp)==true)?1:0; //ここでparticleCrossingOMFの中の処理で質量変化があった際にmainでrecalculate softに計算を回す
-        PS::S32 mass_flag_glb = comm_info.getSum(mass_flag);
+        PS::S32 mass_flag_glb = PS::Comm::getSum(mass_flag);
         if(mass_flag_glb>0)
         {
-            std::cout<<"all nodes are already calculated"<<std::endl;
+            std::cout<<"Number of processes:"<<mass_flag_glb<<std::endl;
         }
         ///////////////
         /*   Merge   */
