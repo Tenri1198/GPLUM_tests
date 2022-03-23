@@ -70,6 +70,7 @@ using Tree_t = PS::TreeForForce<MY_SEARCH_MODE, Force_t, EPI_t, EPJ_t, Moment_t,
 
 int main(int argc, char *argv[])
 {
+    PS::CommInfo comm_info;
     PS::Initialize(argc, argv); 
     showGplumVersion(GPLUMVERSION);
     //PS::Comm::barrier();
@@ -311,7 +312,7 @@ int main(int argc, char *argv[])
     }
     n_loc = system_grav.getNumberOfParticleLocal();
     n_tot = system_grav.getNumberOfParticleGlobal();
-    std::cout<<"-----------------------------------------------------"<<std::endl;
+    //std::cout<<"-----------------------------------------------------"<<std::endl;
 #pragma omp parallel for reduction (max: id_next)
     for ( PS::S32 i=0; i<n_loc; i++ ){
         //#pragma omp critical
@@ -333,7 +334,7 @@ int main(int argc, char *argv[])
 	printf("%20.15e\t%d\t%20.15e\t%d\t%20.15e\t%20.15e\t%20.15e\n",system_grav[i].time,system_grav[i].id,system_grav[i].mass,system_grav[i].flag_gd,system_grav[i].pos.x,system_grav[i].pos.y,system_grav[i].pos.z);
 	//std::cout<<system_grav[i].time<<" "<<system_grav[i].id<<" "<<system_grav[i].mass<<" "<<system_grav[i].flag_gd<<" "<<system_grav[i].pos.x<<" "<<system_grav[i].pos.y<<" "<<system_grav[i].pos.z<<std::endl;
     }
-    std::cout<<"-----------------------------------------------------"<<std::endl;
+    //std::cout<<"-----------------------------------------------------"<<std::endl;
     id_next = PS::Comm::getMaxValue(id_next);
     id_next ++;
     setCutoffRadii(system_grav);
@@ -704,7 +705,16 @@ int main(int argc, char *argv[])
         PS::F64 de_d = ( dekin_d + dephi_d_d + dephi_s_d - edisp_d ) / e_init.etot;
         de_d_cum += de_d;
 #endif
-        bool mass_flag = 0;
+        //bool mass_flag = 0;
+        ////////////////
+        /*   OMF通過  */  //少し考えるとわかることですが、これを入れないとmergeParticleでまとめてOMFの処理まですると、永遠に衝突が起こらない系になります。
+        ///////////////
+        PS::S32 mass_flag = (particleCrossingOMF(system_grav, e_now.edisp)==true)?1:0; //ここでparticleCrossingOMFの中の処理で質量変化があった際にmainでrecalculate softに計算を回す
+        PS::S32 mass_flag_glb = comm_info.getSum(mass_flag);
+        if(mass_flag_glb>0)
+        {
+            std::cout<<"all nodes are already calculated"<<std::endl;
+        }
         ///////////////
         /*   Merge   */
         ///////////////
@@ -718,10 +728,6 @@ int main(int argc, char *argv[])
         // Remove Particle Out Of Boundary
         n_remove = removeParticlesOutOfBoundary(system_grav, e_now.edisp, r_max, r_min, fout_rem);
 
-        ////////////////
-        /*   OMF通過  */  //少し考えるとわかることですが、これを入れないとmergeParticleでまとめてOMFの処理まですると、永遠に衝突が起こらない系になります。
-        ///////////////
-        mass_flag = particleCrossingOMF(system_grav, e_now.edisp); //ここでparticleCrossingOMFの中の処理で質量変化があった際にmainでrecalculate softに計算を回す
 
         ///////////////////////////
         /*   Re-Calculate Soft   */
@@ -737,11 +743,17 @@ int main(int argc, char *argv[])
                 // Remove Particle Out Of Boundary
                 //removeParticlesOutOfBoundary(system_grav, e_now.edisp, r_max, r_min, fout_rem);
             }
-                
+            if(mass_flag)
+            {
+                std::cout<<"L742"<<std::endl;
+            }
             // Reset Number Of Particles
             n_tot = system_grav.getNumberOfParticleGlobal();
             n_loc = system_grav.getNumberOfParticleLocal();
-            
+            if(mass_flag)
+            {
+                std::cout<<"L747:before tree"<<std::endl;
+            }
 #ifdef CALC_WTIME
             PS::Comm::barrier();
             wtime.lap(PS::GetWtime());
@@ -764,6 +776,10 @@ int main(int argc, char *argv[])
             wtime.calc_soft_force_step += time_tmp;
             wtime.calc_soft_force += time_tmp;
 #endif
+            if(mass_flag)
+            {
+                std::cout<<"L773:after treexz"<<std::endl;
+            }
             //NList.initializeList(system_grav);
             correctForceLongInitial(system_grav, tree_grav, NList, n_ngb_tot, n_with_ngb);
 #ifdef INDIRECT_TERM
