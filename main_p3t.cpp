@@ -708,12 +708,14 @@ int main(int argc, char *argv[])
         ////////////////
         /*   OMF通過  */  //少し考えるとわかることですが、これを入れないとmergeParticleでまとめてOMFの処理まですると、永遠に衝突が起こらない系になります。
         ///////////////
-        PS::S32 mass_flag = (particleCrossingOMF(system_grav, e_now.edisp)==true)?1:0; //ここでparticleCrossingOMFの中の処理で質量変化があった際にmainでrecalculate softに計算を回す
-        PS::S32 mass_flag_glb = PS::Comm::getSum(mass_flag);
-        if(mass_flag_glb>0)
+        PS::S32 mass_flag_glb=0;
+        mass_flag_glb = particleCrossingOMF(system_grav, e_now.edisp); //ここでparticleCrossingOMFの中の処理で質量変化があった際にmainでrecalculate softに計算を回す
+        
+        /*if(mass_flag_glb>0)
         {
             std::cout<<"Number of processes:"<<mass_flag_glb<<std::endl;
-        }
+        }*/
+        //printf("%d/%d\n", PS::Comm::getRank(), PS::Comm::getNumberOfProc());
         ///////////////
         /*   Merge   */
         ///////////////
@@ -731,7 +733,7 @@ int main(int argc, char *argv[])
         ///////////////////////////
         /*   Re-Calculate Soft   */
         ///////////////////////////
-        if ( n_col || n_remove || istep % reset_step == reset_step-1 || mass_flag) {
+        if (n_col || n_remove || istep % reset_step == reset_step-1 || mass_flag_glb) {
             if( istep % reset_step == reset_step-1 ) {
 #ifdef USE_POLAR_COORDINATE
                 setPosPolar(system_grav);
@@ -742,14 +744,15 @@ int main(int argc, char *argv[])
                 // Remove Particle Out Of Boundary
                 //removeParticlesOutOfBoundary(system_grav, e_now.edisp, r_max, r_min, fout_rem);
             }
-            if(mass_flag)
+            if(mass_flag_glb)
             {
                 std::cout<<"L742"<<std::endl;
             }
+            printf("%d/%d\n", PS::Comm::getRank(), PS::Comm::getNumberOfProc());
             // Reset Number Of Particles
             n_tot = system_grav.getNumberOfParticleGlobal();
             n_loc = system_grav.getNumberOfParticleLocal();
-            if(mass_flag)
+            if(mass_flag_glb)
             {
                 std::cout<<"L747:before tree"<<std::endl;
             }
@@ -775,7 +778,7 @@ int main(int argc, char *argv[])
             wtime.calc_soft_force_step += time_tmp;
             wtime.calc_soft_force += time_tmp;
 #endif
-            if(mass_flag)
+            if(mass_flag_glb)
             {
                 std::cout<<"L773:after treexz"<<std::endl;
             }
