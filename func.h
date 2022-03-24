@@ -253,7 +253,7 @@ PS::S32 particleCrossingOMF(Tpsys & pp,
 	    }
     }
     mass_flag_glb = PS::Comm::getSum(mass_flag_loc);
-    
+
     for(PS::S32 i=0; i<n_loc; i++)//粒子質量の変更に関するエネルギー処理をここに書く
     {   
         delta_mass[i] = (pp[i].mass-mass_temp[i]);
@@ -351,6 +351,7 @@ void massChangeBeforeCollision(Tpsys & pp,
     }
     edisp += PS::Comm::getSum(edisp_loc);
 }
+
 template <class Tpsys>
 void MergeParticle(Tpsys & pp,
                    PS::S32 n_col,
@@ -425,7 +426,7 @@ void MergeParticle(Tpsys & pp,
     //mechEnergy_after = calcTotalEnergy(pp);
     //力学的エネルギーの増減をedispに反映させる(差の分を計算する)
     //edisp_loc -= (mechEnergy_before - mechEnergy_after);
-    edisp += PS::Comm::getSum(edisp_loc);
+    //edisp += PS::Comm::getSum(edisp_loc);
 }
 /************************ここまで修正しました*********************************/
 template <class Tpsys>
