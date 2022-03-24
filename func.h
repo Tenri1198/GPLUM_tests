@@ -336,6 +336,7 @@ void massChangeBeforeCollision(Tpsys & pp,
 		    edisp_loc += delta_mass[i] * pp[i].phi_s;
 		    edisp_loc += delta_mass[i] * pp[i].phi_d;
 		    edisp_loc += delta_mass[i] * pp[i].phi;
+            std::cout<<std::scientific<<std::setprecision(16)<<"Kinetic energy and Potential energy before merging id:" <<pp[i].id<<" kinetic energy"<<0.5 * delta_mass[i] * pp[i].vel * pp[i].vel<<" potential energy"<<delta_mass[i] * (pp[i].phi_s+pp[i].phi_d+pp[i].phi)<<std::endl;
         }
         for(PS::S32 j=0; j<i; j++)
         {
