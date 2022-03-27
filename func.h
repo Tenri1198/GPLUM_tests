@@ -356,7 +356,8 @@ void massChangeBeforeCollision(Tpsys & pp,
 template <class Tpsys>
 PS::S32 MergeParticle(Tpsys & pp,
                    PS::S32 n_col,
-                   PS::F64 & edisp)
+                   PS::F64 & edisp,
+                   std::ofstream & fout_col2)
 {   
     const PS::S32 n_loc = pp.getNumberOfParticleLocal();
     const PS::S32 n_proc = PS::Comm::getNumberOfProc();
@@ -367,6 +368,15 @@ PS::S32 MergeParticle(Tpsys & pp,
     PS::F64 delta_mass[n_loc];
     PS::S32 mass_flag_loc = 0;
     PS::S32 mass_flag_glb = 0;
+    static std::vector<PS::S32> n_col_list;
+    static std::vector<PS::S32> n_col_adr;
+    static std::vector<FP_t> col_list_loc;
+    static std::vector<FP_t> col_list_glb;
+    n_col_list.resize(n_proc);
+    n_col_adr.resize(n_proc);
+
+    static std::vector<PS::S32> col_list;
+    col_list.clear();
     //PS::F64 mechEnergy_before = 0.;  //粒子の質量変化が起こる前の系の力学的エネルギー
     //PS::F64 mechEnergy_after = 0.;  //粒子の質量変化が起こった後の系の力学的エネルギー
     //mechEnergy_before = calcTotalEnergy(pp);
@@ -396,36 +406,133 @@ PS::S32 MergeParticle(Tpsys & pp,
                         mass_flag_loc = 1;
                         flag_merge = 0;
                     }
+
                     pp[i].mass += pp[j].mass;
-                   
                     pp[i].vel = ( pp[i].mass*pp[i].vel + pp[j].mass*pp[j].vel )/(pp[i].mass+pp[j].mass);
 		            pp[i].flag_gd &= pp[j].flag_gd;
 		            pp[j].flag_gd = pp[i].flag_gd;
-		            //pp[j].flag_gd &= pp[i].flag_gd;
 		            std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h after [target:impactor]"<<pp[i].id<<":"<<pp[i].flag_gd<<" "<<pp[i].mass<<" "<<pp[j].id<<":"<<pp[j].flag_gd<<" "<<pp[j].mass<<std::endl;
-                    //pp[j].flag_gd &= pp[i].flag_gd;
                     //pp[i].acc = ( mi*pp[i].acc + mj*pp[j].acc )/(mi+mj);
+                    mass_temp[i]+=mass_temp[j];
 #ifdef GAS_DRAG
                     pp[i].acc_gd = ( pp[i].mass*pp[i].acc_gd + pp[j].mass*pp[j].acc_gd )/(pp[i].mass+pp[j].mass);
 #endif
                     pp[i].phi   = ( pp[i].mass*pp[i].phi   + pp[j].mass*pp[j].phi   )/(pp[i].mass+pp[j].mass);
                     pp[i].phi_d = ( pp[i].mass*pp[i].phi_d + pp[j].mass*pp[j].phi_d )/(pp[i].mass+pp[j].mass);
-                    
+
                     edisp_loc -= 0.5 * pp[i].mass*pp[j].mass/(pp[i].mass+pp[j].mass) * vrel*vrel;   //E_init - E_fin = edisp;
 #pragma omp critical
                     {
                         remove[n_remove] = j;
                         n_remove ++;
                     }
+#pragma omp critical 
+                    {
+                        col_list.push_back(i);
+                    }
+
                     assert ( pp[i].pos == pp[j].pos );
                     assert ( pp[j].isDead );
                 }
             }
-            //pp[i].isMerged = false;   
+            pp[i].isMerged = false;   
         }
     }
+    PS::S32 n_col_loc = col_list.size();
+    PS::S32 n_col_glb = PS::Comm::getSum(n_col_loc);
     mass_flag_glb = PS::Comm::getSum(mass_flag_loc);
-#pragma omp parallel for reduction (-:edisp_loc)  //粒子の衝突合体時の質量増加に伴うエネルギー処理
+       if ( n_col_glb ){
+        
+        //PS::S32 * n_remove_list   = nullptr;
+        //PS::S32 * n_remove_adr    = nullptr;
+        //FP_t *  remove_list_loc = nullptr;
+        //FP_t *  remove_list_glb = nullptr;
+        
+        if ( PS::Comm::getRank() == 0 ){
+            //n_remove_list   = new PS::S32[n_proc];
+            //n_remove_adr    = new PS::S32[n_proc];
+            //remove_list_glb = new FP_t[n_remove_glb];
+            col_list_glb.resize(n_col_glb);
+        }
+        //remove_list_loc = new FP_t[n_remove_loc];
+        col_list_loc.resize(n_col_loc);
+        
+#ifdef PARTICLE_SIMULATOR_MPI_PARALLEL
+        MPI_Gather(&n_col_loc, 1, PS::GetDataType(n_col_loc),
+                   &n_col_list[0], 1, PS::GetDataType(n_col_list[0]),  0, MPI_COMM_WORLD);
+#else
+        n_col_list[0]  = n_col_loc;
+#endif
+        //PS::Comm::gather(&n_remove_loc, 1, n_remove_list);
+        
+        if ( PS::Comm::getRank() == 0 ){
+            PS::S32 tmp_col = 0;
+            for ( PS::S32 i=0; i<n_proc; i++ ){
+                n_col_adr[i]  = tmp_col;
+                tmp_col += n_col_list[i];
+            }
+            assert ( n_col_glb == tmp_col );
+        }
+
+        for ( PS::S32 i=0; i<n_col_loc; i++ ) {
+            col_list_loc[i] = pp[col_list.at(i)];
+        }
+
+#ifdef PARTICLE_SIMULATOR_MPI_PARALLEL
+        MPI_Gatherv(&col_list_loc[0], n_col_loc,                        PS::GetDataType(col_list_loc[0]),
+                    &col_list_glb[0], &n_col_list[0], &n_col_adr[0], PS::GetDataType(col_list_glb[0]), 0, MPI_COMM_WORLD);
+#else
+        for(PS::S32 i=0; i<n_col_loc; i++) col_list_glb[i] = col_list_loc[i];
+#endif
+        //PS::Comm::gatherV(remove_list_loc, n_remove_loc, remove_list_glb, n_remove_list, n_remove_adr);
+        
+        if ( PS::Comm::getRank() == 0 ){
+            for ( PS::S32 i=0; i<n_col_glb; i++ ) {
+            
+                PS::F64    delta_massi = col_list_glb[i].mass-mass_temp[col_list.at(i)];
+                PS::F64vec veli  = col_list_glb[i].vel;
+                edisp_loc += 0.5*delta_massi* veli*veli;
+                edisp_loc += delta_massi * col_list_glb[i].phi_s;
+                edisp_loc += delta_massi * col_list_glb[i].phi_d;
+                edisp_loc += delta_massi * col_list_glb[i].phi;
+            
+                for ( PS::S32 j=0; j<i; j++ ) {
+                    if ( col_list_glb[i].id != col_list_glb[j].id ) {
+                        PS::F64    delta_massj = col_list_glb[j].mass-mass_temp[col_list.at(j)];
+                        PS::F64vec posi  = col_list_glb[i].pos;
+                        PS::F64vec posj  = col_list_glb[j].pos;
+                        PS::F64    eps2   = FP_t::eps2;
+                        
+                        PS::F64vec dr = posi - posj;
+                        PS::F64    rinv = 1./sqrt(dr*dr + eps2);
+                        
+                        edisp_loc += delta_massi * delta_massj * rinv;
+                    }
+                }
+        
+                std::cerr << "Collision Particle " << col_list_glb[i].id << std::endl
+                          << "Position : " << std::setprecision(15) << col_list_glb[i].pos << std::endl;
+                fout_col2 << std::fixed<<std::setprecision(8)
+                         << col_list_glb[i].time << "\t" << col_list_glb[i].id << "\t"
+                         << std::scientific << std::setprecision(15) << col_list_glb[i].mass << "\t"
+                         << col_list_glb[i].pos.x << "\t" << col_list_glb[i].pos.y << "\t" << col_list_glb[i].pos.z << "\t"
+                         << col_list_glb[i].vel.x << "\t" << col_list_glb[i].vel.y << "\t" << col_list_glb[i].vel.z
+                         << std::endl;
+            }
+            
+            //delete [] n_remove_list;
+            //delete [] n_remove_adr;
+            //delete [] remove_list_glb;
+        
+        }
+        
+        //delete [] remove_list_loc;
+
+#ifdef INDIRECT_TERM
+        e_ind_before = calcIndirectEnergy(pp);
+#endif
+    }
+/*#pragma omp parallel for reduction (-:edisp_loc)  //粒子の衝突合体時の質量増加に伴うエネルギー処理
     for ( PS::S32 i=0; i<n_loc; i++ ){
         if ( pp[i].isMerged ) {
             for ( PS::S32 j=0; j<n_loc; j++ ){    
@@ -454,7 +561,7 @@ PS::S32 MergeParticle(Tpsys & pp,
             }
             pp[i].isMerged = false;   
         }
-    }
+    }*/
     PS::Comm::barrier();
     edisp += PS::Comm::getSum(edisp_loc);
     
