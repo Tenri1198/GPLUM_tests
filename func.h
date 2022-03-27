@@ -284,7 +284,7 @@ PS::S32 particleCrossingOMF(Tpsys & pp,
     edisp += PS::Comm::getSum(edisp_loc);
     return mass_flag_glb;
 }
-
+/*
 template <class Tpsys>
 void massChangeBeforeCollision(Tpsys & pp,
                    PS::S32 n_col,
@@ -331,12 +331,12 @@ void massChangeBeforeCollision(Tpsys & pp,
         delta_mass[i] = (pp[i].mass-mass_temp[i]);
         if(delta_mass[i])  //質量が増えたわけだから、edisp_locには足していく必要がある(はず)
         {
-            std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h by mass change by merging(Energy change) id:"<<pp[i].id<<" mass:"<<pp[i].mass<<" mass:"<<mass_temp[i]<<" index:"<<pp_id[i]<<std::endl;
+            std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h(mass change by merging(Energy change)) id:"<<pp[i].id<<" mass:"<<pp[i].mass<<" mass:"<<mass_temp[i]<<" index:"<<pp_id[i]<<std::endl;
             edisp_loc += 0.5 * delta_mass[i] * pp[i].vel * pp[i].vel;
 		    edisp_loc += delta_mass[i] * pp[i].phi_s;
 		    edisp_loc += delta_mass[i] * pp[i].phi_d;
 		    edisp_loc += delta_mass[i] * pp[i].phi;
-            std::cout<<std::scientific<<std::setprecision(16)<<"Kinetic energy and Potential energy before merging id:" <<pp[i].id<<" kinetic energy"<<0.5 * delta_mass[i] * pp[i].vel * pp[i].vel<<" potential energy"<<delta_mass[i] * (pp[i].phi_s+pp[i].phi_d+pp[i].phi)<<std::endl;
+            //std::cout<<std::scientific<<std::setprecision(16)<<"Kinetic energy and Potential energy before merging id:" <<pp[i].id<<" kinetic energy"<<0.5 * delta_mass[i] * pp[i].vel * pp[i].vel<<" potential energy"<<delta_mass[i] * (pp[i].phi_s+pp[i].phi_d+pp[i].phi)<<std::endl;
         }
         for(PS::S32 j=0; j<i; j++)
         {
@@ -352,57 +352,66 @@ void massChangeBeforeCollision(Tpsys & pp,
     }
     edisp += PS::Comm::getSum(edisp_loc);
 }
-
+*/
 template <class Tpsys>
-void MergeParticle(Tpsys & pp,
+PS::S32 MergeParticle(Tpsys & pp,
                    PS::S32 n_col,
                    PS::F64 & edisp)
 {   
     const PS::S32 n_loc = pp.getNumberOfParticleLocal();
+    const PS::S32 n_proc = PS::Comm::getNumberOfProc();
     PS::S32 n_remove = 0;
     PS::S32 * remove = new PS::S32[n_col];
     PS::F64 edisp_loc = 0.;
-    PS::F64 mechEnergy_before = 0.;  //粒子の質量変化が起こる前の系の力学的エネルギー
-    PS::F64 mechEnergy_after = 0.;  //粒子の質量変化が起こった後の系の力学的エネルギー
+    PS::F64 mass_temp[n_loc];
+    PS::F64 delta_mass[n_loc];
+    PS::S32 mass_flag_loc = 0;
+    PS::S32 mass_flag_glb = 0;
+    //PS::F64 mechEnergy_before = 0.;  //粒子の質量変化が起こる前の系の力学的エネルギー
+    //PS::F64 mechEnergy_after = 0.;  //粒子の質量変化が起こった後の系の力学的エネルギー
     //mechEnergy_before = calcTotalEnergy(pp);
+    for(PS::S32 i=0; i<n_loc; i++)  //質量が変更される前の粒子質量を格納する
+    {
+        mass_temp[i] = pp[i].mass;
+    }
+
 #pragma omp parallel for reduction (-:edisp_loc)  //粒子の衝突合体処理
     for ( PS::S32 i=0; i<n_loc; i++ ){
         bool flag_merge = 1;
         if ( pp[i].isMerged ) {
             for ( PS::S32 j=0; j<n_loc; j++ ){              
                 if ( pp[j].id == pp[i].id && i != j ){
-                    PS::F64 mi = pp[i].mass;
-                    PS::F64 mj = pp[j].mass;
                     PS::F64vec vrel = pp[j].vel - pp[i].vel;
-                    /*//std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h before [target:impactor]"<<pp[i].id<<":"<<pp[i].flag_gd<<" "<<pp[i].mass<<" "<<pp[j].id<<":"<<pp[j].flag_gd<<" "<<pp[j].mass<<std::endl;
+                    //std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h before [target:impactor]"<<pp[i].id<<":"<<pp[i].flag_gd<<" "<<pp[i].mass<<" "<<pp[j].id<<":"<<pp[j].flag_gd<<" "<<pp[j].mass<<std::endl;
                     if(pp[i].flag_gd==0 && pp[j].flag_gd==1)
                     {  
-                        mj = mj*1.844028699792144e-09/5.029e-19; 
+                        pp[j].mass = mass_temp[j]*1.844028699792144e-09/5.029e-19; 
                         //pp[i].mass += mj;
+                        mass_flag_loc = 1;
                     }
                     else if(pp[i].flag_gd==1 && pp[j].flag_gd==0 && flag_merge == 1)
-                    {   
-                        mi *= 1.844028699792144e-09/5.029e-19;
-                        pp[i].mass = pp[i].mass*1.844028699792144e-09/5.029e-19;
+                    {  
+                        pp[i].mass = mass_temp[i]*1.844028699792144e-09/5.029e-19;
                         //pp[i].mass += mj;
+                        mass_flag_loc = 1;
                         flag_merge = 0;
                     }
-                    */
-                    pp[i].mass += mj;
-                    pp[i].vel = ( mi*pp[i].vel + mj*pp[j].vel )/(mi+mj);
+                    pp[i].mass += pp[j].mass;
+                   
+                    pp[i].vel = ( pp[i].mass*pp[i].vel + pp[j].mass*pp[j].vel )/(pp[i].mass+pp[j].mass);
 		            pp[i].flag_gd &= pp[j].flag_gd;
 		            pp[j].flag_gd = pp[i].flag_gd;
 		            //pp[j].flag_gd &= pp[i].flag_gd;
-		            std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h after [target:impactor]"<<pp[i].id<<":"<<pp[i].flag_gd<<" "<<pp[i].mass<<" "<<pp[j].id<<":"<<pp[j].flag_gd<<" "<<mj<<std::endl;
+		            std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h after [target:impactor]"<<pp[i].id<<":"<<pp[i].flag_gd<<" "<<pp[i].mass<<" "<<pp[j].id<<":"<<pp[j].flag_gd<<" "<<pp[j].mass<<std::endl;
                     //pp[j].flag_gd &= pp[i].flag_gd;
                     //pp[i].acc = ( mi*pp[i].acc + mj*pp[j].acc )/(mi+mj);
 #ifdef GAS_DRAG
-                    pp[i].acc_gd = ( mi*pp[i].acc_gd + mj*pp[j].acc_gd )/(mi+mj);
+                    pp[i].acc_gd = ( pp[i].mass*pp[i].acc_gd + pp[j].mass*pp[j].acc_gd )/(pp[i].mass+pp[j].mass);
 #endif
-                    pp[i].phi   = ( mi*pp[i].phi   + mj*pp[j].phi   )/(mi+mj);
-                    pp[i].phi_d = ( mi*pp[i].phi_d + mj*pp[j].phi_d )/(mi+mj);
-
-                    edisp_loc -= 0.5 * mi*mj/(mi+mj) * vrel*vrel;   //E_init - E_fin = edisp;
+                    pp[i].phi   = ( pp[i].mass*pp[i].phi   + pp[j].mass*pp[j].phi   )/(pp[i].mass+pp[j].mass);
+                    pp[i].phi_d = ( pp[i].mass*pp[i].phi_d + pp[j].mass*pp[j].phi_d )/(pp[i].mass+pp[j].mass);
+                    
+                    edisp_loc -= 0.5 * pp[i].mass*pp[j].mass/(pp[i].mass+pp[j].mass) * vrel*vrel;   //E_init - E_fin = edisp;
 #pragma omp critical
                     {
                         remove[n_remove] = j;
@@ -412,10 +421,40 @@ void MergeParticle(Tpsys & pp,
                     assert ( pp[j].isDead );
                 }
             }
+            //pp[i].isMerged = false;   
+        }
+    }
+    mass_flag_glb = PS::Comm::getSum(mass_flag_loc);
+#pragma omp parallel for reduction (-:edisp_loc)  //粒子の衝突合体時の質量増加に伴うエネルギー処理
+    for ( PS::S32 i=0; i<n_loc; i++ ){
+        if ( pp[i].isMerged ) {
+            for ( PS::S32 j=0; j<n_loc; j++ ){    
+                if ( pp[j].id == pp[i].id && i != j ){
+                    delta_mass[i]=pp[i].mass-(mass_temp[i]+mass_temp[j]);
+                    if(delta_mass[i])  //質量が増えたわけだから、edisp_locには足していく必要がある(はず)
+                    {
+                        //std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h by crossing OMF(Energy change) id:"<<pp[i].id<<" mass:"<<pp[i].mass<<" mass:"<<mass_temp[i]<<" index:"<<pp_id[i]<<std::endl;
+                        edisp_loc += 0.5 * delta_mass[i] * pp[i].vel * pp[i].vel;
+		                edisp_loc += delta_mass[i] * pp[i].phi_s;
+		                edisp_loc += delta_mass[i] * pp[i].phi_d;
+		                edisp_loc += delta_mass[i] * pp[i].phi;
+                    }
+                    for(PS::S32 j=0; j<i; j++)
+                    {
+	                    PS::F64 massi = delta_mass[i];
+	                    PS::F64 massj = delta_mass[j];
+	                    PS::F64vec posi = pp[i].pos;
+		                PS::F64vec posj = pp[j].pos;
+		                PS::F64vec dr = posi - posj;
+                        PS::F64 eps2 = FP_t::eps2;
+		                PS::F64 rinv = 1./sqrt(dr*dr+eps2);
+		                edisp_loc +=  massi * massj * rinv;
+		            }
+                }
+            }
             pp[i].isMerged = false;   
         }
     }
-
     PS::Comm::barrier();
     edisp += PS::Comm::getSum(edisp_loc);
     
@@ -428,6 +467,7 @@ void MergeParticle(Tpsys & pp,
     //力学的エネルギーの増減をedispに反映させる(差の分を計算する)
     //edisp_loc -= (mechEnergy_before - mechEnergy_after);
     //edisp += PS::Comm::getSum(edisp_loc);
+    return mass_flag_glb;
 }
 /************************ここまで修正しました*********************************/
 template <class Tpsys>
@@ -463,7 +503,7 @@ PS::S32 removeParticlesOutOfBoundary(Tpsys & pp,
         PS::F64vec posi = pp[i].pos;
         PS::F64    pos2 = posi*posi;
         if ( pos2 > rmax2 || pos2 < rmin2 ){
-#pragma omp critical //ここら辺を変える
+#pragma omp critical 
             {
                 remove_list.push_back(i);
             }
