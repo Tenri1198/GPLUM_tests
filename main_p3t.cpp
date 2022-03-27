@@ -418,9 +418,11 @@ int main(int argc, char *argv[])
     std::ofstream fout_eng;
     std::ofstream fout_col;
     std::ofstream fout_rem;
+    std::ofstream fout_col2;
     char sout_eng[256];
     char sout_col[256];
     char sout_rem[256];
+    char sout_col2[256];
 
     if ( PS::Comm::getRank() == 0 ) {
         sprintf(sout_eng, "%s/energy.dat",    dir_name);
@@ -428,6 +430,7 @@ int main(int argc, char *argv[])
         //sprintf(sout_rem, "%s/remove.dat",    dir_name);
         sprintf(sout_col, "%s/collision%06d.dat", dir_name, isnap+1);
         sprintf(sout_rem, "%s/remove%06d.dat",    dir_name, isnap+1);
+        sprintf(sout_col2, "%s/collision2_%06d.dat", dir_name, isnap+1);
         if ( time_sys == 0. ) {
             fout_eng.open(sout_eng, std::ios::out);
             //fout_col.open(sout_col, std::ios::out);
@@ -439,6 +442,7 @@ int main(int argc, char *argv[])
         }
         fout_col.open(sout_col, std::ios::out);
         fout_rem.open(sout_rem, std::ios::out);
+        fout_col2.open(sout_col2, std::ios::out);
     }
     //PS::Comm::barrier();
     
@@ -719,11 +723,12 @@ int main(int argc, char *argv[])
         ///////////////
         /*   Merge   */
         ///////////////
-        if ( n_col ) {   //衝突時の質量変化によるエネルギー散逸を計算
+        /*if ( n_col ) {   //衝突時の質量変化によるエネルギー散逸を計算
             massChangeBeforeCollision(system_grav, n_col, e_now.edisp);
-        }
+        }*/
+        PS::S32 col_flag = 0;
         if ( n_col ) {//衝突時の粒子の合体によるエネルギー散逸の計算
-            MergeParticle(system_grav, n_col, e_now.edisp);
+           col_flag = MergeParticle(system_grav, n_col, e_now.edisp,fout_col2);
         }
 
         // Remove Particle Out Of Boundary
@@ -744,18 +749,18 @@ int main(int argc, char *argv[])
                 // Remove Particle Out Of Boundary
                 //removeParticlesOutOfBoundary(system_grav, e_now.edisp, r_max, r_min, fout_rem);
             }
-            if(mass_flag_glb)
+            /*if(mass_flag_glb)
             {
                 std::cout<<"L742"<<std::endl;
-            }
-            printf("%d/%d\n", PS::Comm::getRank(), PS::Comm::getNumberOfProc());
+            }*/
+            fprintf(stderr,"%d/%d\n", PS::Comm::getRank(), PS::Comm::getNumberOfProc());
             // Reset Number Of Particles
             n_tot = system_grav.getNumberOfParticleGlobal();
             n_loc = system_grav.getNumberOfParticleLocal();
-            if(mass_flag_glb)
+            /*if(mass_flag_glb)
             {
                 std::cout<<"L747:before tree"<<std::endl;
-            }
+            }*/
 #ifdef CALC_WTIME
             PS::Comm::barrier();
             wtime.lap(PS::GetWtime());
@@ -778,10 +783,10 @@ int main(int argc, char *argv[])
             wtime.calc_soft_force_step += time_tmp;
             wtime.calc_soft_force += time_tmp;
 #endif
-            if(mass_flag_glb)
+            /*if(mass_flag_glb)
             {
-                std::cout<<"L773:after treexz"<<std::endl;
-            }
+                std::cout<<"L773:after tree"<<std::endl;
+            }*/
             //NList.initializeList(system_grav);
             correctForceLongInitial(system_grav, tree_grav, NList, n_ngb_tot, n_with_ngb);
 #ifdef INDIRECT_TERM
@@ -855,10 +860,13 @@ int main(int argc, char *argv[])
             if ( PS::Comm::getRank() == 0 ) {
                 fout_col.close();
                 fout_rem.close();
+                fout_col2.close();
                 sprintf(sout_col, "%s/collision%06d.dat", dir_name, isnap);
                 sprintf(sout_rem, "%s/remove%06d.dat",    dir_name, isnap);
+                sprintf(sout_col2, "%s/collision2_%06d.dat", dir_name, isnap);
                 fout_col.open(sout_col, std::ios::out);
                 fout_rem.open(sout_rem, std::ios::out);
+                fout_col2.open(sout_col2, std::ios::out);
             }
         }
 
@@ -880,6 +888,7 @@ int main(int argc, char *argv[])
         fout_eng.close();
         fout_col.close();
         fout_rem.close();
+        fout_col2.close();
     }
     
     PS::Comm::barrier();
