@@ -356,8 +356,7 @@ void massChangeBeforeCollision(Tpsys & pp,
 template <class Tpsys>
 PS::S32 MergeParticle(Tpsys & pp,
                    PS::S32 n_col,
-                   PS::F64 & edisp,
-                   std::ofstream & fout_col2)
+                   PS::F64 & edisp)
 {   
     const PS::S32 n_loc = pp.getNumberOfParticleLocal();
     const PS::S32 n_proc = PS::Comm::getNumberOfProc();
@@ -389,7 +388,7 @@ PS::S32 MergeParticle(Tpsys & pp,
     for ( PS::S32 i=0; i<n_loc; i++ ){
         bool flag_merge = 1;
         if ( pp[i].isMerged ) {
-            for ( PS::S32 j=0; j<n_loc; j++ ){              
+            for ( PS::S32 j=i; j<n_loc; j++ ){              
                 if ( pp[j].id == pp[i].id && i != j ){
                     PS::F64vec vrel = pp[j].vel - pp[i].vel;
                     //std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h before [target:impactor]"<<pp[i].id<<":"<<pp[i].flag_gd<<" "<<pp[i].mass<<" "<<pp[j].id<<":"<<pp[j].flag_gd<<" "<<pp[j].mass<<std::endl;
@@ -420,7 +419,7 @@ PS::S32 MergeParticle(Tpsys & pp,
                     pp[i].phi   = ( pp[i].mass*pp[i].phi   + pp[j].mass*pp[j].phi   )/(pp[i].mass+pp[j].mass);
                     pp[i].phi_d = ( pp[i].mass*pp[i].phi_d + pp[j].mass*pp[j].phi_d )/(pp[i].mass+pp[j].mass);
 
-                    edisp_loc -= 0.5 * pp[i].mass*pp[j].mass/(pp[i].mass+pp[j].mass) * vrel*vrel;   //E_init - E_fin = edisp;
+                    //edisp_loc -= 0.5 * pp[i].mass*pp[j].mass/(pp[i].mass+pp[j].mass) * vrel*vrel;   //E_init - E_fin = edisp;
 #pragma omp critical
                     {
                         remove[n_remove] = j;
@@ -441,7 +440,7 @@ PS::S32 MergeParticle(Tpsys & pp,
     PS::S32 n_col_loc = col_list.size();
     PS::S32 n_col_glb = PS::Comm::getSum(n_col_loc);
     mass_flag_glb = PS::Comm::getSum(mass_flag_loc);
-       if ( n_col_glb ){
+       /*if ( n_col_glb ){
         
         //PS::S32 * n_remove_list   = nullptr;
         //PS::S32 * n_remove_adr    = nullptr;
@@ -479,7 +478,7 @@ PS::S32 MergeParticle(Tpsys & pp,
         }
 
 #ifdef PARTICLE_SIMULATOR_MPI_PARALLEL
-        MPI_Gatherv(&col_list_loc[0], n_col_loc,                        PS::GetDataType(col_list_loc[0]),
+        MPI_Gatherv(&col_list_loc[0], n_col_loc,PS::GetDataType(col_list_loc[0]),
                     &col_list_glb[0], &n_col_list[0], &n_col_adr[0], PS::GetDataType(col_list_glb[0]), 0, MPI_COMM_WORLD);
 #else
         for(PS::S32 i=0; i<n_col_loc; i++) col_list_glb[i] = col_list_loc[i];
@@ -563,7 +562,7 @@ PS::S32 MergeParticle(Tpsys & pp,
         }
     }*/
     PS::Comm::barrier();
-    edisp += PS::Comm::getSum(edisp_loc);
+    //edisp += PS::Comm::getSum(edisp_loc);
     
     if ( n_remove ){
         pp.removeParticle(remove, n_remove);
