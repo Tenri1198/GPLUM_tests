@@ -418,11 +418,9 @@ int main(int argc, char *argv[])
     std::ofstream fout_eng;
     std::ofstream fout_col;
     std::ofstream fout_rem;
-    std::ofstream fout_col2;
     char sout_eng[256];
     char sout_col[256];
     char sout_rem[256];
-    char sout_col2[256];
 
     if ( PS::Comm::getRank() == 0 ) {
         sprintf(sout_eng, "%s/energy.dat",    dir_name);
@@ -430,7 +428,6 @@ int main(int argc, char *argv[])
         //sprintf(sout_rem, "%s/remove.dat",    dir_name);
         sprintf(sout_col, "%s/collision%06d.dat", dir_name, isnap+1);
         sprintf(sout_rem, "%s/remove%06d.dat",    dir_name, isnap+1);
-        sprintf(sout_col2, "%s/collision2_%06d.dat", dir_name, isnap+1);
         if ( time_sys == 0. ) {
             fout_eng.open(sout_eng, std::ios::out);
             //fout_col.open(sout_col, std::ios::out);
@@ -442,7 +439,6 @@ int main(int argc, char *argv[])
         }
         fout_col.open(sout_col, std::ios::out);
         fout_rem.open(sout_rem, std::ios::out);
-        fout_col2.open(sout_col2, std::ios::out);
     }
     //PS::Comm::barrier();
     
@@ -710,35 +706,31 @@ int main(int argc, char *argv[])
 #endif
         //bool mass_flag = 0;
         ////////////////
-        /*   OMF通過  */  //少し考えるとわかることですが、これを入れないとmergeParticleでまとめてOMFの処理まですると、永遠に衝突が起こらない系になります。
+        /*   OMF通過  */  
         ///////////////
         PS::S32 mass_flag_glb=0;
         mass_flag_glb = particleCrossingOMF(system_grav, e_now.edisp); //ここでparticleCrossingOMFの中の処理で質量変化があった際にmainでrecalculate softに計算を回す
         
-        /*if(mass_flag_glb>0)
-        {
-            std::cout<<"Number of processes:"<<mass_flag_glb<<std::endl;
-        }*/
-        //printf("%d/%d\n", PS::Comm::getRank(), PS::Comm::getNumberOfProc());
         ///////////////
         /*   Merge   */
         ///////////////
         /*if ( n_col ) {   //衝突時の質量変化によるエネルギー散逸を計算
             massChangeBeforeCollision(system_grav, n_col, e_now.edisp);
         }*/
+        PS::F64 energyBeforeCol = 0.;
         PS::S32 col_flag = 0;
         if ( n_col ) {//衝突時の粒子の合体によるエネルギー散逸の計算
-           col_flag = MergeParticle(system_grav, n_col, e_now.edisp,fout_col2);
+           //ここでエネルギー計算をしておく(衝突前の) 
+           energyBeforeCol = e_now.calcEnergy_output(system_grav);  //エネルギーを返す関数
+           col_flag = MergeParticle(system_grav, n_col, e_now.edisp);
         }
-
         // Remove Particle Out Of Boundary
         n_remove = removeParticlesOutOfBoundary(system_grav, e_now.edisp, r_max, r_min, fout_rem);
-
-
+        
         ///////////////////////////
         /*   Re-Calculate Soft   */
         ///////////////////////////
-        if (n_col || n_remove || istep % reset_step == reset_step-1 || mass_flag_glb) {
+        if (mass_flag_glb || n_col || n_remove || istep % reset_step == reset_step-1) {
             if( istep % reset_step == reset_step-1 ) {
 #ifdef USE_POLAR_COORDINATE
                 setPosPolar(system_grav);
@@ -802,9 +794,21 @@ int main(int argc, char *argv[])
 #pragma omp parallel for
             for(PS::S32 i=0; i<n_loc; i++) system_grav[i].acc += system_grav[i].acc_gd;
 #endif
-            e_now.calcEnergy(system_grav);
+            if(mass_flag_glb || n_remove || istep % reset_step == reset_step-1)
+            {
+                e_now.calcEnergy(system_grav);
+            }
+            else  //衝突に関するエネルギー処理
+            {
+                PS::F64 energyAfterCol = 0.;
+                energyAfterCol = e_now.calcEnergy_output(system_grav);  //ここでエネルギー計算をしておく(衝突後の) 
+                PS::F64 deltaEnergy = 0.;
+                deltaEnergy = energyAfterCol-energyBeforeCol; //衝突前後のエネルギーの差分を取る
+                e_now.edisp += deltaEnergy;
+            }
+        
         }
-   
+
         ///   Soft Part
         ////////////////////
 
@@ -860,13 +864,10 @@ int main(int argc, char *argv[])
             if ( PS::Comm::getRank() == 0 ) {
                 fout_col.close();
                 fout_rem.close();
-                fout_col2.close();
                 sprintf(sout_col, "%s/collision%06d.dat", dir_name, isnap);
                 sprintf(sout_rem, "%s/remove%06d.dat",    dir_name, isnap);
-                sprintf(sout_col2, "%s/collision2_%06d.dat", dir_name, isnap);
                 fout_col.open(sout_col, std::ios::out);
                 fout_rem.open(sout_rem, std::ios::out);
-                fout_col2.open(sout_col2, std::ios::out);
             }
         }
 
@@ -888,7 +889,6 @@ int main(int argc, char *argv[])
         fout_eng.close();
         fout_col.close();
         fout_rem.close();
-        fout_col2.close();
     }
     
     PS::Comm::barrier();
