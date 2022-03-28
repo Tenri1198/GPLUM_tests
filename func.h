@@ -387,8 +387,8 @@ PS::S32 MergeParticle(Tpsys & pp,
 #pragma omp parallel for reduction (-:edisp_loc)  //粒子の衝突合体処理
     for ( PS::S32 i=0; i<n_loc; i++ ){
         bool flag_merge = 1;
-        if ( pp[i].isMerged ) {
-            for ( PS::S32 j=i; j<n_loc; j++ ){              
+        if ( pp[i].isMerged && !pp[i].isDead) {
+            for ( PS::S32 j=0; j<n_loc; j++ ){              
                 if ( pp[j].id == pp[i].id && i != j ){
                     PS::F64vec vrel = pp[j].vel - pp[i].vel;
                     //std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h before [target:impactor]"<<pp[i].id<<":"<<pp[i].flag_gd<<" "<<pp[i].mass<<" "<<pp[j].id<<":"<<pp[j].flag_gd<<" "<<pp[j].mass<<std::endl;
