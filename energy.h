@@ -61,10 +61,47 @@ public:
         ephi_planet =  ephi + ephi_d;
         etot = ekin + ephi_sun + ephi_planet;
     }
+
+    template<class Tpsys>
+    PS::F64 calcEnergy_output(const Tpsys & pp,
+                    const bool clear=true){
+        if ( clear ) etot = ekin = ephi_sun = ephi_planet = ephi = ephi_d = 0.0;
+
+        PS::F64 ekin_loc = 0.0;
+        PS::F64 ephi_sun_loc = 0.0;
+        PS::F64 ephi_loc = 0.0;
+        PS::F64 ephi_d_loc = 0.0;
+        
+        const PS::S32 n_loc = pp.getNumberOfParticleLocal();
+        for(PS::S32 i = 0; i < n_loc; i++){
+            ekin_loc     += pp[i].mass * pp[i].vel * pp[i].vel;
+            ephi_sun_loc += pp[i].mass * pp[i].phi_s;
+#ifndef CORRECT_NEIGHBOR
+            ephi_loc     += pp[i].mass * pp[i].phi;
+#else
+            ephi_loc     += pp[i].mass * (pp[i].phi + pp[i].phi_correct);
+#endif
+            ephi_d_loc   += pp[i].mass * pp[i].phi_d;
+        }
+        ekin_loc *= 0.5;
+        ephi_loc *= 0.5;
+        ephi_d_loc *= 0.5;
+
+        ekin     += PS::Comm::getSum(ekin_loc);
+#ifdef INDIRECT_TERM
+        ekin     += getIndirectEnergy(pp);
+#endif
+        ephi_sun += PS::Comm::getSum(ephi_sun_loc);
+        ephi     += PS::Comm::getSum(ephi_loc);
+        ephi_d   += PS::Comm::getSum(ephi_d_loc);
+        ephi_planet =  ephi + ephi_d;
+        etot = ekin + ephi_sun + ephi_planet;
+        return etot;
+    }
     
     PS::F64 calcEnergyError(const Energy e_init){
         //return (etot - e_init.etot - edisp)/e_init.etot;
-        return (etot - e_init.etot - edisp)/etot;   //補正項が正しく計算されているかのチェックにはなっている
+        return (etot - e_init.etot - edisp)/etot;   //散逸エネルギーのものを引くとかなり小さな値になるはずで、そうなるとエネルギー保存がしっかりされていることがわかる(大体10^-8くらいであればよい)
     }
 };
 

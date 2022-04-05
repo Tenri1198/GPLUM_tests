@@ -157,60 +157,6 @@ void setPosPolar(Tpsys & pp)
 }
 #endif
 /************************ここから修正しました*********************************/
-template<class Tpsys>
-    PS::F64 calcTotalEnergy(const Tpsys & pp)
-        {
-            /*PS::F64 etot1 = 0.0;
-            PS::F64 ekin1 = 0.0;
-            PS::F64 ephi_sun1 = 0.0;
-            PS::F64 ephi_planet1 = 0.0;
-            PS::F64 ephi1 = 0.0;
-            PS::F64 ephi_d1 = 0.0;
-            PS::F64 ekin_loc1 = 0.0;
-            PS::F64 ephi_sun_loc1 = 0.0;
-            PS::F64 ephi_loc1 = 0.0;
-            PS::F64 ephi_d_loc1 = 0.0;
-        
-            const PS::S32 n_loc = pp.getNumberOfParticleLocal();
-            for(PS::S32 i = 0; i < n_loc; i++){
-                ekin_loc1     += pp[i].mass * pp[i].vel * pp[i].vel;
-                ephi_sun_loc1 += pp[i].mass * pp[i].phi_s;
-#ifndef CORRECT_NEIGHBOR
-                ephi_loc1     += pp[i].mass * pp[i].phi;
-#else
-                ephi_loc1     += pp[i].mass * (pp[i].phi + pp[i].phi_correct);
-#endif
-                ephi_d_loc1   += pp[i].mass * pp[i].phi_d;
-            }
-            ekin_loc1 *= 0.5;
-            ephi_loc1 *= 0.5;
-            ephi_d_loc1 *= 0.5;
-
-            ekin1     += PS::Comm::getSum(ekin_loc1);
-#ifdef INDIRECT_TERM
-            ekin1     += getIndirectEnergy(pp);
-#endif
-            ephi_sun1 += PS::Comm::getSum(ephi_sun_loc1);
-            ephi1     += PS::Comm::getSum(ephi_loc1);
-            ephi_d1   += PS::Comm::getSum(ephi_d_loc1);
-            ephi_planet1 =  ephi1 + ephi_d1;
-            etot1 = ekin1 + ephi_sun1 + ephi_planet1;
-            return etot1;
-            */
-            PS::F64 mechEnergy = 0.0;
-            PS::F64 eKin = 0.0;
-            PS::F64 ePhi = 0.0;
-            const PS::S32 n_loc = pp.getNumberOfParticleLocal();
-            for(PS::S32 i=0; i<n_loc; i++)
-            {
-                eKin += 0.5 * pp[i].mass * pp[i].vel * pp[i].vel;
-                ePhi += pp[i].mass * pp[i].phi_s;
-		        ePhi += pp[i].mass * pp[i].phi_d;
-		        ePhi += pp[i].mass * pp[i].phi;
-            }
-            mechEnergy = eKin + ePhi;
-            return mechEnergy;
-        }
 template <class Tpsys>
 PS::S32 particleCrossingOMF(Tpsys & pp,
                    PS::F64 & edisp)
@@ -245,7 +191,7 @@ PS::S32 particleCrossingOMF(Tpsys & pp,
             mass_flag_loc = 1;
             std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h by crossing OMF(before) id:"<<pp[i].id<<" distance:"<<r<<" mass:"<<pp[i].mass<<" size:"<<pp[i].r_planet<<" flag:"<<pp[i].flag_gd<<std::endl;
 		    pp[i].flag_gd=0;
-		    pp[i].mass = pp[i].mass*1.844028699792144e-09/5.029e-19;
+		    pp[i].mass = pp[i].mass*1.844028699792144e-09/5.029e-14;
 		    pp[i].r_planet = pow((0.75*pp[i].mass/(rho_dust*M_PI)),1./3.);
 		    pp[i].f = 1.0;
 		    pp[i].acc_gd=0.;
@@ -253,7 +199,7 @@ PS::S32 particleCrossingOMF(Tpsys & pp,
 	    }
     }
     mass_flag_glb = PS::Comm::getSum(mass_flag_loc);
-
+    /*
     for(PS::S32 i=0; i<n_loc; i++)//粒子質量の変更に関するエネルギー処理をここに書く
     {   
         delta_mass[i] = (pp[i].mass-mass_temp[i]);
@@ -282,6 +228,7 @@ PS::S32 particleCrossingOMF(Tpsys & pp,
     //力学的エネルギーの増減をedispに反映させる(差の分を計算する)
     //edisp_loc += (mechEnergy_before - mechEnergy_after);
     edisp += PS::Comm::getSum(edisp_loc);
+    */
     return mass_flag_glb;
 }
 /*
@@ -394,13 +341,13 @@ PS::S32 MergeParticle(Tpsys & pp,
                     //std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h before [target:impactor]"<<pp[i].id<<":"<<pp[i].flag_gd<<" "<<pp[i].mass<<" "<<pp[j].id<<":"<<pp[j].flag_gd<<" "<<pp[j].mass<<std::endl;
                     if(pp[i].flag_gd==0 && pp[j].flag_gd==1)
                     {  
-                        pp[j].mass = mass_temp[j]*1.844028699792144e-09/5.029e-19; 
+                        pp[j].mass = mass_temp[j]*1.844028699792144e-09/5.029e-14; 
                         //pp[i].mass += mj;
                         mass_flag_loc = 1;
                     }
                     else if(pp[i].flag_gd==1 && pp[j].flag_gd==0 && flag_merge == 1)
                     {  
-                        pp[i].mass = mass_temp[i]*1.844028699792144e-09/5.029e-19;
+                        pp[i].mass = mass_temp[i]*1.844028699792144e-09/5.029e-14;
                         //pp[i].mass += mj;
                         mass_flag_loc = 1;
                         flag_merge = 0;
@@ -416,8 +363,8 @@ PS::S32 MergeParticle(Tpsys & pp,
 #ifdef GAS_DRAG
                     pp[i].acc_gd = ( pp[i].mass*pp[i].acc_gd + pp[j].mass*pp[j].acc_gd )/(pp[i].mass+pp[j].mass);
 #endif
-                    pp[i].phi   = ( pp[i].mass*pp[i].phi   + pp[j].mass*pp[j].phi   )/(pp[i].mass+pp[j].mass);
-                    pp[i].phi_d = ( pp[i].mass*pp[i].phi_d + pp[j].mass*pp[j].phi_d )/(pp[i].mass+pp[j].mass);
+                    //pp[i].phi   = ( pp[i].mass*pp[i].phi   + pp[j].mass*pp[j].phi   )/(pp[i].mass+pp[j].mass);
+                    //pp[i].phi_d = ( pp[i].mass*pp[i].phi_d + pp[j].mass*pp[j].phi_d )/(pp[i].mass+pp[j].mass);
 
                     //edisp_loc -= 0.5 * pp[i].mass*pp[j].mass/(pp[i].mass+pp[j].mass) * vrel*vrel;   //E_init - E_fin = edisp;
 #pragma omp critical
@@ -766,3 +713,14 @@ void correctEnergyForGas(Tpsys & pp,
     edisp_gd += 0.5 * FP_t::dt_tree * PS::Comm::getSum(edisp_gd_loc);
 }
 
+template <class Tpsys>
+PS::F64 calc_mass(Tpsys & pp)
+{
+    PS::F64 total_mass = 0.;
+    const PS::S32 n_loc = pp.getNumberOfParticleLocal();
+    for(int i=0;i<n_loc;i++)
+    {
+        total_mass+=pp[i].mass;
+    }
+    return total_mass;
+}
