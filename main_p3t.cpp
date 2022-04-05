@@ -323,7 +323,7 @@ int main(int argc, char *argv[])
         if(time_sys==0.) system_grav[i].flag_gd=1;
         if(system_grav[i].flag_gd==1 && system_grav[i].mass >= 1.844e-09)
 	    {
-			system_grav[i].mass = 5.029e-19; //10^15[g]にflag_gdが立っている粒子の質量を変更
+			system_grav[i].mass = 5.029e-14; //10^20[g]にflag_gdが立っている粒子の質量を変更
  	    }
         system_grav[i].isMerged = false;
         system_grav[i].isDead = false;
@@ -709,8 +709,18 @@ int main(int argc, char *argv[])
         /*   OMF通過  */  
         ///////////////
         PS::S32 mass_flag_glb=0;
+        PS::F64 total_mass_loc = 0.;
+        PS::F64 total_mass_glb = 0.;
+        //ここでエネルギー計算をしておく(通過前の) 
+        PS::F64 energyBeforeCross = e_now.calcEnergy_output(system_grav);  //エネルギーを返す関数
         mass_flag_glb = particleCrossingOMF(system_grav, e_now.edisp); //ここでparticleCrossingOMFの中の処理で質量変化があった際にmainでrecalculate softに計算を回す
-        
+        if ( mass_flag_glb ) {//衝突時の粒子の合体によるエネルギー散逸の計算
+           total_mass_loc = 0.;
+           total_mass_glb = 0.;
+           total_mass_loc = calc_mass(system_grav);
+           total_mass_glb = PS::Comm::getSum(total_mass_loc);
+           if ( PS::Comm::getRank() == 0 ) std::cerr << std::setprecision(16) << time_sys << ": total mass after crossing " << total_mass_glb <<std::endl;
+        }
         ///////////////
         /*   Merge   */
         ///////////////
@@ -719,10 +729,19 @@ int main(int argc, char *argv[])
         }*/
         PS::F64 energyBeforeCol = 0.;
         PS::S32 col_flag = 0;
+        
         if ( n_col ) {//衝突時の粒子の合体によるエネルギー散逸の計算
            //ここでエネルギー計算をしておく(衝突前の) 
+           total_mass_loc = calc_mass(system_grav);
+           total_mass_glb = PS::Comm::getSum(total_mass_loc);
+           if ( PS::Comm::getRank() == 0 ) std::cerr << std::setprecision(16) << time_sys << ": total mass before marging " << total_mass_glb <<std::endl;
            energyBeforeCol = e_now.calcEnergy_output(system_grav);  //エネルギーを返す関数
            col_flag = MergeParticle(system_grav, n_col, e_now.edisp);
+           total_mass_loc = 0.;
+           total_mass_glb = 0.;
+           total_mass_loc = calc_mass(system_grav);
+           total_mass_glb = PS::Comm::getSum(total_mass_loc);
+           if ( PS::Comm::getRank() == 0 ) std::cerr << std::setprecision(16) << time_sys << ": total mass after marging " << total_mass_glb <<std::endl;
         }
         // Remove Particle Out Of Boundary
         n_remove = removeParticlesOutOfBoundary(system_grav, e_now.edisp, r_max, r_min, fout_rem);
@@ -735,17 +754,19 @@ int main(int argc, char *argv[])
 #ifdef USE_POLAR_COORDINATE
                 setPosPolar(system_grav);
 #endif
-                dinfo.decomposeDomainAll(system_grav);
-                system_grav.exchangeParticle(dinfo);
+                //dinfo.decomposeDomainAll(system_grav);
+                //system_grav.exchangeParticle(dinfo);
  
                 // Remove Particle Out Of Boundary
                 //removeParticlesOutOfBoundary(system_grav, e_now.edisp, r_max, r_min, fout_rem);
             }
+            dinfo.decomposeDomainAll(system_grav);
+            system_grav.exchangeParticle(dinfo);
             /*if(mass_flag_glb)
             {
                 std::cout<<"L742"<<std::endl;
             }*/
-            fprintf(stderr,"%d/%d\n", PS::Comm::getRank(), PS::Comm::getNumberOfProc());
+            //fprintf(stderr,"%d/%d\n", PS::Comm::getRank(), PS::Comm::getNumberOfProc());
             // Reset Number Of Particles
             n_tot = system_grav.getNumberOfParticleGlobal();
             n_loc = system_grav.getNumberOfParticleLocal();
@@ -794,11 +815,7 @@ int main(int argc, char *argv[])
 #pragma omp parallel for
             for(PS::S32 i=0; i<n_loc; i++) system_grav[i].acc += system_grav[i].acc_gd;
 #endif
-            if(mass_flag_glb || n_remove || istep % reset_step == reset_step-1)
-            {
-                e_now.calcEnergy(system_grav);
-            }
-            else  //衝突に関するエネルギー処理
+            if(n_col)  //衝突に関するエネルギー処理
             {
                 PS::F64 energyAfterCol = 0.;
                 energyAfterCol = e_now.calcEnergy_output(system_grav);  //ここでエネルギー計算をしておく(衝突後の) 
@@ -806,7 +823,18 @@ int main(int argc, char *argv[])
                 deltaEnergy = energyAfterCol-energyBeforeCol; //衝突前後のエネルギーの差分を取る
                 e_now.edisp += deltaEnergy;
             }
-        
+            if(mass_flag_glb)
+            {
+                PS::F64 energyAfterCross = 0.;
+                energyAfterCross = e_now.calcEnergy_output(system_grav);  //ここでエネルギー計算をしておく(衝突後の) 
+                PS::F64 deltaEnergy = 0.;
+                deltaEnergy = energyAfterCross-energyBeforeCross; //衝突前後のエネルギーの差分を取る
+                e_now.edisp += deltaEnergy;
+            }
+            if(n_col || mass_flag_glb || n_remove || istep % reset_step == reset_step-1)
+            {
+                e_now.calcEnergy(system_grav);
+            }
         }
 
         ///   Soft Part
