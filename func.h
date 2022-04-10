@@ -191,7 +191,7 @@ PS::S32 particleCrossingOMF(Tpsys & pp,
             mass_flag_loc = 1;
             std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h by crossing OMF(before) id:"<<pp[i].id<<" distance:"<<r<<" mass:"<<pp[i].mass<<" size:"<<pp[i].r_planet<<" flag:"<<pp[i].flag_gd<<std::endl;
 		    pp[i].flag_gd=0;
-		    pp[i].mass = pp[i].mass*1.844028699792144e-09/5.029e-14;
+		    pp[i].mass = pp[i].mass*1.844028699792144e-09/5.029e-17;
 		    pp[i].r_planet = pow((0.75*pp[i].mass/(rho_dust*M_PI)),1./3.);
 		    pp[i].f = 1.0;
 		    pp[i].acc_gd=0.;
@@ -199,7 +199,7 @@ PS::S32 particleCrossingOMF(Tpsys & pp,
 	    }
     }
     mass_flag_glb = PS::Comm::getSum(mass_flag_loc);
-    /*
+    
     for(PS::S32 i=0; i<n_loc; i++)//粒子質量の変更に関するエネルギー処理をここに書く
     {   
         delta_mass[i] = (pp[i].mass-mass_temp[i]);
@@ -228,7 +228,7 @@ PS::S32 particleCrossingOMF(Tpsys & pp,
     //力学的エネルギーの増減をedispに反映させる(差の分を計算する)
     //edisp_loc += (mechEnergy_before - mechEnergy_after);
     edisp += PS::Comm::getSum(edisp_loc);
-    */
+    
     return mass_flag_glb;
 }
 /*
@@ -341,18 +341,55 @@ PS::S32 MergeParticle(Tpsys & pp,
                     //std::cout<<std::scientific<<std::setprecision(16)<<"flag_gd checker at func.h before [target:impactor]"<<pp[i].id<<":"<<pp[i].flag_gd<<" "<<pp[i].mass<<" "<<pp[j].id<<":"<<pp[j].flag_gd<<" "<<pp[j].mass<<std::endl;
                     if(pp[i].flag_gd==0 && pp[j].flag_gd==1)
                     {  
-                        pp[j].mass = mass_temp[j]*1.844028699792144e-09/5.029e-14; 
+                        pp[j].mass = mass_temp[j]*1.844028699792144e-09/5.029e-17; 
                         //pp[i].mass += mj;
                         mass_flag_loc = 1;
+
+                        PS::F64 massd = pp[j].mass - mass_temp[j];
+                        edisp_loc += 0.5 * massd * pp[j].vel * pp[j].vel;
+		                edisp_loc += massd * pp[j].phi_s;
+		                edisp_loc += massd * pp[j].phi_d;
+		                edisp_loc += massd* pp[j].phi;
+                        for(PS::S32 k=0; k<j; k++)
+                        {   
+                            delta_mass[k]=pp[k].mass - mass_temp[k];
+                            delta_mass[j]=pp[j].mass - mass_temp[j];
+	                        PS::F64 massk = delta_mass[k];
+	                        PS::F64 massj = delta_mass[j];
+	                        PS::F64vec posk = pp[k].pos;
+		                    PS::F64vec posj = pp[j].pos;
+		                    PS::F64vec dr = posk - posj;
+                            PS::F64 eps2 = FP_t::eps2;
+		                    PS::F64 rinv = 1./sqrt(dr*dr+eps2);
+		                    edisp_loc +=  massk * massj * rinv;
+		                }
                     }
                     else if(pp[i].flag_gd==1 && pp[j].flag_gd==0 && flag_merge == 1)
                     {  
-                        pp[i].mass = mass_temp[i]*1.844028699792144e-09/5.029e-14;
+                        pp[i].mass = mass_temp[i]*1.844028699792144e-09/5.029e-17;
                         //pp[i].mass += mj;
                         mass_flag_loc = 1;
                         flag_merge = 0;
-                    }
 
+                        PS::F64 massd = pp[i].mass - mass_temp[i];
+                        edisp_loc += 0.5 * massd * pp[i].vel * pp[i].vel;
+		                edisp_loc += massd * pp[i].phi_s;
+		                edisp_loc += massd * pp[i].phi_d;
+		                edisp_loc += massd* pp[i].phi;
+                        for(PS::S32 k=0; k<i; k++)
+                        {
+                            delta_mass[i]=pp[i].mass - mass_temp[i];
+                            delta_mass[k]=pp[k].mass - mass_temp[k];
+	                        PS::F64 massi = delta_mass[i];
+	                        PS::F64 massk = delta_mass[k];
+	                        PS::F64vec posi = pp[i].pos;
+		                    PS::F64vec posk = pp[k].pos;
+		                    PS::F64vec dr = posi - posk;
+                            PS::F64 eps2 = FP_t::eps2;
+		                    PS::F64 rinv = 1./sqrt(dr*dr+eps2);
+		                    edisp_loc +=  massi * massk * rinv;
+		                }
+                    }
                     pp[i].mass += pp[j].mass;
                     pp[i].vel = ( pp[i].mass*pp[i].vel + pp[j].mass*pp[j].vel )/(pp[i].mass+pp[j].mass);
 		            pp[i].flag_gd &= pp[j].flag_gd;
@@ -363,10 +400,10 @@ PS::S32 MergeParticle(Tpsys & pp,
 #ifdef GAS_DRAG
                     pp[i].acc_gd = ( pp[i].mass*pp[i].acc_gd + pp[j].mass*pp[j].acc_gd )/(pp[i].mass+pp[j].mass);
 #endif
-                    //pp[i].phi   = ( pp[i].mass*pp[i].phi   + pp[j].mass*pp[j].phi   )/(pp[i].mass+pp[j].mass);
-                    //pp[i].phi_d = ( pp[i].mass*pp[i].phi_d + pp[j].mass*pp[j].phi_d )/(pp[i].mass+pp[j].mass);
+                    pp[i].phi   = ( pp[i].mass*pp[i].phi   + pp[j].mass*pp[j].phi   )/(pp[i].mass+pp[j].mass);
+                    pp[i].phi_d = ( pp[i].mass*pp[i].phi_d + pp[j].mass*pp[j].phi_d )/(pp[i].mass+pp[j].mass);
 
-                    //edisp_loc -= 0.5 * pp[i].mass*pp[j].mass/(pp[i].mass+pp[j].mass) * vrel*vrel;   //E_init - E_fin = edisp;
+                    edisp_loc -= 0.5 * pp[i].mass*pp[j].mass/(pp[i].mass+pp[j].mass) * vrel*vrel;   //E_init - E_fin = edisp;
 #pragma omp critical
                     {
                         remove[n_remove] = j;
@@ -379,8 +416,38 @@ PS::S32 MergeParticle(Tpsys & pp,
 
                     assert ( pp[i].pos == pp[j].pos );
                     assert ( pp[j].isDead );
+                    
                 }
-            }
+                /*delta_mass[i]=pp[i].mass-mass_temp[i];
+                if(delta_mass[i])  //質量を手で人工的に増やしたので、edisp_locには足していく必要がある(はず)
+                {
+                    edisp_loc += 0.5 * delta_mass[i] * pp[i].vel * pp[i].vel;
+		            edisp_loc += delta_mass[i] * pp[i].phi_s;
+		            edisp_loc += delta_mass[i] * pp[i].phi_d;
+		            edisp_loc += delta_mass[i] * pp[i].phi;
+                    /*
+                    PS::F64 massi = delta_mass[i];  //j粒子がremoveされたことをedispに反映する
+	                PS::F64 massj = delta_mass[j];
+	                PS::F64vec posi = pp[i].pos;
+		            PS::F64vec posj = pp[j].pos;
+		            PS::F64vec dr = posi - posj;
+                    PS::F64 eps2 = FP_t::eps2;
+		            PS::F64 rinv = 1./sqrt(dr*dr+eps2);
+		            edisp_loc -=  massi * massj * rinv;
+                }
+                for(PS::S32 k=0; k<i; k++)
+                {
+	                PS::F64 massi = delta_mass[i];
+	                PS::F64 massk = delta_mass[k];
+	                PS::F64vec posi = pp[i].pos;
+		            PS::F64vec posk = pp[k].pos;
+		            PS::F64vec dr = posi - posk;
+                    PS::F64 eps2 = FP_t::eps2;
+		            PS::F64 rinv = 1./sqrt(dr*dr+eps2);
+		            edisp_loc +=  massi * massk * rinv;
+		        }
+                */
+            }   
             pp[i].isMerged = false;   
         }
     }
