@@ -256,7 +256,7 @@ public:
                     pp[i].acc += 0.8*pp[i].acc_gd;
                 }
             }
-	    else if(r>110.9149*pow(time,0.5732) && pp[i].flag_gd==1) //flagが立っていて、かつまだ降着が始まっていないものへのガス抵抗
+	        else if(r>110.9149*pow(time,0.5732) && pp[i].flag_gd==1) //flagが立っていて、かつまだ降着が始まっていないものへのガス抵抗
             {
                 if (clear) pp[i].acc_gd = 0.;
                 //Epstein region

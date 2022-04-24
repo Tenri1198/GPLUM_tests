@@ -323,15 +323,15 @@ int main(int argc, char *argv[])
         if(time_sys==0.) system_grav[i].flag_gd=1;
         if(system_grav[i].flag_gd==1 && system_grav[i].mass >= 1.844e-09)
 	    {
-			system_grav[i].mass = 5.028e-20; //10^13[g]にflag_gdが立っている粒子の質量を変更
-            system_grav[i].f = 0.;
+			system_grav[i].mass = 5.028e-20; //10^14[g]にflag_gdが立っている粒子の質量を変更
+            system_grav[i].f == 0.;
  	    }
         system_grav[i].isMerged = false;
         system_grav[i].isDead = false;
         if ( system_grav[i].r_planet <= 0. ) system_grav[i].setRPlanet();
         //if ( system_grav[i].f == 0. ) system_grav[i].f = FP_t::increase_factor;
 
-	printf("%20.15e\t%d\t%20.15e\t%d\t%20.15e\t%20.15e\t%20.15e\t%20.15e\n",system_grav[i].time,system_grav[i].id,system_grav[i].mass,system_grav[i].flag_gd,system_grav[i].pos.x,system_grav[i].pos.y,system_grav[i].pos.z,system_grav[i].f);
+	printf("%20.15e\t%d\t%20.15e\t%d\t%20.15e\t%20.15e\t%20.15e\n",system_grav[i].time,system_grav[i].id,system_grav[i].mass,system_grav[i].flag_gd,system_grav[i].pos.x,system_grav[i].pos.y,system_grav[i].pos.z);
 	//std::cout<<system_grav[i].time<<" "<<system_grav[i].id<<" "<<system_grav[i].mass<<" "<<system_grav[i].flag_gd<<" "<<system_grav[i].pos.x<<" "<<system_grav[i].pos.y<<" "<<system_grav[i].pos.z<<std::endl;
     }
     //std::cout<<"-----------------------------------------------------"<<std::endl;
@@ -698,15 +698,15 @@ int main(int argc, char *argv[])
         Energy e_tmp = e_now;
         PS::F64 dekin_d = ekin_after - ekin_before;
 #endif
-        e_now.calcEnergy(system_grav);
-
+        //e_now.calcEnergy(system_grav);
+/*
 #ifdef OUTPUT_DETAIL
         PS::F64 dephi_d_d = e_now.ephi_d - e_tmp.ephi_d;
         PS::F64 dephi_s_d = e_now.ephi_sun - e_tmp.ephi_sun;
-        PS::F64 de_d = ( dekin_d + dephi_d_d + dephi_s_d - edisp_d ) / e_now.etot;
+        PS::F64 de_d = ( dekin_d + dephi_d_d + dephi_s_d - edisp_d ) / e_init.etot;
         de_d_cum += de_d;
 #endif
-
+*/
         ////////////////
         /*   OMF通過  */  
         ///////////////
@@ -738,9 +738,7 @@ int main(int argc, char *argv[])
            total_mass_glb = PS::Comm::getSum(total_mass_loc);
            if ( PS::Comm::getRank() == 0 ) std::cerr << std::setprecision(16) << time_sys << ": total mass before marging " << total_mass_glb <<std::endl;
            //energyBeforeCol = e_now.calcEnergy_output(system_grav);  //エネルギーを返す関数
-           //col_flag = MergeParticle(system_grav, n_col, e_now.edisp,edisp_d);
-           collision_calc(system_grav,n_col,e_now.edisp,edisp_d);
-           fprintf(stderr,"%d/%d\n", PS::Comm::getRank(), PS::Comm::getNumberOfProc());
+           col_flag = MergeParticle(system_grav, n_col, e_now.edisp);
            total_mass_loc = 0.;
            total_mass_glb = 0.;
            total_mass_loc = calc_mass(system_grav);
@@ -751,7 +749,13 @@ int main(int argc, char *argv[])
         n_remove = removeParticlesOutOfBoundary(system_grav, e_now.edisp, r_max, r_min, fout_rem);
         
        e_now.calcEnergy(system_grav);
-
+#ifdef OUTPUT_DETAIL
+        PS::F64 dephi_d_d = e_now.ephi_d - e_tmp.ephi_d;   //1タイムステップ内でhardに入った前と終わった後の差分   hardは1stepの積分があっているかをチェックするもの
+        PS::F64 dephi_s_d = e_now.ephi_sun - e_tmp.ephi_sun;
+        //PS::F64 de_d = ( dekin_d + dephi_d_d + dephi_s_d - edisp_d ) / e_init.etot;
+        PS::F64 de_d = ( dekin_d + dephi_d_d + dephi_s_d - edisp_d ) / e_now.etot;
+        de_d_cum += de_d;
+#endif
         ///////////////////////////
         /*   Re-Calculate Soft   */
         ///////////////////////////

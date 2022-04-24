@@ -247,7 +247,7 @@ inline void Collision0::setParticle(Tpsys & pp,
             {
                 std::cerr<< std::scientific << std::setprecision(16)<< "Old targetter size[tar:imp=0:1]: " << pp[id_c_tar].r_planet<<"\tTarget ID:Impactor ID " << id_tar<<":"<<id_imp<<std::endl;//
                 std::cerr<< std::scientific << std::setprecision(16)<< "Old mass [tar:imp=0:1]: " << pp[id_c_tar].mass<<" : " <<pp[id_c_imp].mass<<std::endl;
-                mass_imp = mass_imp*1.844028699792144e-09/5.029e-17;
+                mass_imp = mass_imp*1.844028699792144e-09/5.028e-20;
                 mass_rem = mass_imp + mass_tar - mass_frag;
                 pp[id_c_tar].r_planet*= pow(mass_rem/mass_tar, 1./3.);
                 std::cerr<< std::scientific << std::setprecision(16)<< "New mass before mass addition [tar:imp=0:1]: " << pp[id_c_tar].mass<<" : " <<mass_imp<<std::endl;
@@ -257,7 +257,7 @@ inline void Collision0::setParticle(Tpsys & pp,
             {
                 std::cerr<< std::scientific << std::setprecision(16)<< "Old targetter size[tar:imp=1:0] " << pp[id_c_tar].r_planet<<"\tTarget ID:Impactor ID " << id_tar<<":"<<id_imp<<std::endl;//
                 std::cerr<< std::scientific << std::setprecision(16)<< "Old mass [tar:imp=1:0]: " << pp[id_c_tar].mass<<" : " <<pp[id_c_imp].mass<<std::endl;
-                mass_tar = mass_tar*1.844028699792144e-09/5.029e-17;
+                mass_tar = mass_tar*1.844028699792144e-09/5.028e-20;
                 mass_rem = mass_imp + mass_tar - mass_frag;
                 pp[id_c_tar].r_planet*= pow(mass_rem/mass_tar, 1./3.);
                 std::cerr<< std::scientific << std::setprecision(16)<< "New mass before mass addition [tar:imp=1:0]: " << mass_tar<<" : " <<pp[id_c_imp].mass<<std::endl;
@@ -274,7 +274,7 @@ inline void Collision0::setParticle(Tpsys & pp,
             }//pp[id_c_tar].r_planet *= pow(mass_rem/mass_tar, 1./3.);
             //pp[id_c_tar].setRPlanet(mass_rem);
         } else {
-            pp[id_c_tar].r_planet = r_planet_tar_new;
+            pp[id_c_tar].r_planet *= pow((mass_imp - mass_frag)/mass_imp, 1./3.);
         }
     }
     pp[id_c_imp].mass -= mass_frag;

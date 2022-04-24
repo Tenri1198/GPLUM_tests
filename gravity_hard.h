@@ -351,7 +351,7 @@ void calcGravity_p(Tp & pi,
             PS::F64 _K    = 1.-cutoff_K(rij, r_out_inv);
             PS::F64 dKdt = cutoff_dKdt(rij, r_out_inv, alpha);
             PS::F64 alpha_c = alpha*_K;
-
+            
             //pi.phi_d  -= massj * rinv * _W;
             pi.acc_d  += mj_rij3 *   _K * dr;
             pi.jerk_d += mj_rij3 * ( _K * dv - (3.*alpha_c + dKdt) * dr );
