@@ -721,7 +721,7 @@ int main(int argc, char *argv[])
         //ガス抵抗による速度変化によるエネルギー変化とedisp_gdが整合的かどうかのチェック
         e_now.check_gas_drag_energy_change(system_grav,dekin_d,edisp_gd,time_sys,fout_info4);
         e_now.calcEnergy(system_grav);
-        
+
 #ifdef OUTPUT_DETAIL
         PS::F64 dephi_d_d = e_now.ephi_d - e_tmp.ephi_d;
         PS::F64 dephi_s_d = e_now.ephi_sun - e_tmp.ephi_sun;
@@ -821,7 +821,7 @@ int main(int argc, char *argv[])
             correctForceLongInitial(system_grav, tree_grav, NList, n_ngb_tot, n_with_ngb);
 
             //ここで2回目のsoftチェック  粒子情報を出力する
-            acc_phi_output(system_grav,time_sys,fout_info2,false);
+            //acc_phi_output(system_grav,time_sys,fout_info2,false);
 
             //系のエネルギーに関する情報を出力する
             e_now.calcEnergy_output(system_grav,time_sys,fout_info3);

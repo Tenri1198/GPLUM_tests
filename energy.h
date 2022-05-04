@@ -175,31 +175,31 @@ public:
     }
 
 
-        template<class Tpsys>
+    template<class Tpsys>
     void check_gas_drag_energy_change(const Tpsys & pp,
                            PS::F64 dekin_d,
                            PS::F64 edisp_gd,
                            PS::F64 time_sys,
                            std::ofstream & fp){
-        
-        fp  <<std::fixed<< time_sys << "\t"<<std::scientific<<std::setprecision(8)
-            << dekin_d << "\t" << edisp_gd
-            << std::endl;
-
-        for(PS::S32 i = 0; i < n_loc; i++)
-        {
-            fp  << std::scientific<<std::setprecision(16)
-                << pp[i].id << "\t" << pp[i].mass  << "\t"
-                << pp[i].pos.x << "\t" << pp[i].pos.y  << "\t" << pp[i].pos.z <<"\t"
-                << pp[i].vel.x << "\t" << pp[i].vel.y  << "\t" << pp[i].vel.z <<"\t"
-                <<0.5*pp[i].mass*(pp[i].vel.x*pp[i].vel.x+pp[i].vel.y*pp[i].vel.y)<<"\t"
-                <<sqrt(pp[i].pos.x*pp[i].pos.x+pp[i].pos.y*pp[i].pos.y)
+            const PS::S32 n_loc = pp.getNumberOfParticleLocal();
+            fp  <<std::fixed<< time_sys << "\t"<<std::scientific<<std::setprecision(8)
+                << dekin_d << "\t" << edisp_gd
                 << std::endl;
+
+            for(PS::S32 i = 0; i < n_loc; i++)
+            {
+                fp  << std::scientific<<std::setprecision(16)
+                    << pp[i].id << "\t" << pp[i].mass  << "\t"
+                    << pp[i].pos.x << "\t" << pp[i].pos.y  << "\t" << pp[i].pos.z <<"\t"
+                    << pp[i].vel.x << "\t" << pp[i].vel.y  << "\t" << pp[i].vel.z <<"\t"
+                    <<0.5*pp[i].mass*(pp[i].vel.x*pp[i].vel.x+pp[i].vel.y*pp[i].vel.y)<<"\t"
+                    <<sqrt(pp[i].pos.x*pp[i].pos.x+pp[i].pos.y*pp[i].pos.y)
+                    << std::endl;
+            }
+
         }
 
-    }
-
-};
+    };
 
 class FileHeader{
 public:
