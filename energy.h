@@ -185,7 +185,7 @@ public:
             fp  <<std::fixed<< time_sys << "\t"<<std::scientific<<std::setprecision(8)
                 << dekin_d << "\t" << edisp_gd
                 << std::endl;
-
+            /*
             for(PS::S32 i = 0; i < n_loc; i++)
             {
                 fp  << std::scientific<<std::setprecision(16)
@@ -196,7 +196,7 @@ public:
                     <<sqrt(pp[i].pos.x*pp[i].pos.x+pp[i].pos.y*pp[i].pos.y)
                     << std::endl;
             }
-
+            */
         }
 
     };
