@@ -321,7 +321,7 @@ int main(int argc, char *argv[])
         system_grav[i].time = time_sys;
         system_grav[i].neighbor = system_grav[i].n_cluster = 0;
         if(time_sys==0.) system_grav[i].flag_gd=1;
-        if(system_grav[i].flag_gd==1 && system_grav[i].mass >= 1.844e-09)
+        if(system_grav[i].flag_gd==1 && system_grav[i].mass <= 1.844e-09)
 	    {
 			system_grav[i].mass = 5.028e-20; //10^13[g]にflag_gdが立っている粒子の質量を変更
             system_grav[i].f = 0.;
@@ -419,22 +419,41 @@ int main(int argc, char *argv[])
     std::ofstream fout_eng;
     std::ofstream fout_col;
     std::ofstream fout_rem;
+    std::ofstream fout_info;     //crossing OMFやmergeParticleの時の粒子情報を格納するファイル   
+    std::ofstream fout_info2;    //recalculate softが行われた後の系の詳細な粒子情報を格納するファイル
+    std::ofstream fout_info3;    //系のエネルギーに関する情報を格納するファイル
+    std::ofstream fout_info4;    //ガスドラッグのエネルギー変化をチェックするデータを格納する出力ファイル
     char sout_eng[256];
     char sout_col[256];
     char sout_rem[256];
-
+    char sout_info[256];
+    char sout_info2[256];
+    char sout_info3[256];
+    char sout_info4[256];
     if ( PS::Comm::getRank() == 0 ) {
         sprintf(sout_eng, "%s/energy.dat",    dir_name);
+        sprintf(sout_info, "%s/info.dat",    dir_name);
+        sprintf(sout_info2, "%s/info2.dat",    dir_name);
+        sprintf(sout_info3, "%s/info3.dat",    dir_name);
+        sprintf(sout_info4, "%s/info4.dat",    dir_name);
         //sprintf(sout_col, "%s/collision.dat", dir_name);
         //sprintf(sout_rem, "%s/remove.dat",    dir_name);
         sprintf(sout_col, "%s/collision%06d.dat", dir_name, isnap+1);
         sprintf(sout_rem, "%s/remove%06d.dat",    dir_name, isnap+1);
         if ( time_sys == 0. ) {
             fout_eng.open(sout_eng, std::ios::out);
+            fout_info.open(sout_info, std::ios::out);
+            fout_info2.open(sout_info2, std::ios::out);
+            fout_info3.open(sout_info3, std::ios::out);
+            fout_info4.open(sout_info4, std::ios::out);
             //fout_col.open(sout_col, std::ios::out);
             //fout_rem.open(sout_rem, std::ios::out);
         } else {
             fout_eng.open(sout_eng, std::ios::app);
+            fout_info.open(sout_info, std::ios::app);
+            fout_info2.open(sout_info2, std::ios::app);
+            fout_info3.open(sout_info3, std::ios::app);
+            fout_info4.open(sout_info4, std::ios::app);
             //fout_col.open(sout_col, std::ios::app);
             //fout_rem.open(sout_rem, std::ios::app);
         }
@@ -496,6 +515,7 @@ int main(int argc, char *argv[])
         ///////////////////////////
 #ifdef GAS_DRAG
         correctEnergyForGas(system_grav, edisp_gd, false);
+
 #endif
         velKick(system_grav);
 #ifdef OUTPUT_DETAIL
@@ -698,15 +718,17 @@ int main(int argc, char *argv[])
         Energy e_tmp = e_now;
         PS::F64 dekin_d = ekin_after - ekin_before;
 #endif
+        //ガス抵抗による速度変化によるエネルギー変化とedisp_gdが整合的かどうかのチェック
+        e_now.check_gas_drag_energy_change(system_grav,dekin_d,edisp_gd,time_sys,fout_info4);
         e_now.calcEnergy(system_grav);
-
+        
 #ifdef OUTPUT_DETAIL
         PS::F64 dephi_d_d = e_now.ephi_d - e_tmp.ephi_d;
         PS::F64 dephi_s_d = e_now.ephi_sun - e_tmp.ephi_sun;
         PS::F64 de_d = ( dekin_d + dephi_d_d + dephi_s_d - edisp_d ) / e_now.etot;
         de_d_cum += de_d;
 #endif
-
+        e_now.calcEnergy_output(system_grav,time_sys,fout_info,false); 
         ////////////////
         /*   OMF通過  */  
         ///////////////
@@ -736,16 +758,17 @@ int main(int argc, char *argv[])
            //ここでエネルギー計算をしておく(衝突前の) 
            total_mass_loc = calc_mass(system_grav);
            total_mass_glb = PS::Comm::getSum(total_mass_loc);
-           if ( PS::Comm::getRank() == 0 ) std::cerr << std::setprecision(16) << time_sys << ": total mass before marging " << total_mass_glb <<std::endl;
+           if ( PS::Comm::getRank() == 0 ) std::cerr << std::setprecision(16) << time_sys << ": total mass before merging " << total_mass_glb <<std::endl;
            //energyBeforeCol = e_now.calcEnergy_output(system_grav);  //エネルギーを返す関数
-           //col_flag = MergeParticle(system_grav, n_col, e_now.edisp,edisp_d);
-           collision_calc(system_grav,n_col,e_now.edisp,edisp_d);
-           fprintf(stderr,"%d/%d\n", PS::Comm::getRank(), PS::Comm::getNumberOfProc());
+           MergeParticle(system_grav, n_col, e_now.edisp,fout_info,time_sys);
+
+           //collision_calc(system_grav,n_col,e_now.edisp,edisp_d);
+           //fprintf(stderr,"%d/%d\n", PS::Comm::getRank(), PS::Comm::getNumberOfProc());
            total_mass_loc = 0.;
            total_mass_glb = 0.;
            total_mass_loc = calc_mass(system_grav);
            total_mass_glb = PS::Comm::getSum(total_mass_loc);
-           if ( PS::Comm::getRank() == 0 ) std::cerr << std::setprecision(16) << time_sys << ": total mass after marging " << total_mass_glb <<std::endl;
+           if ( PS::Comm::getRank() == 0 ) std::cerr << std::setprecision(16) << time_sys << ": total mass after merging " << total_mass_glb <<std::endl;
         }
         // Remove Particle Out Of Boundary
         n_remove = removeParticlesOutOfBoundary(system_grav, e_now.edisp, r_max, r_min, fout_rem);
@@ -792,10 +815,19 @@ int main(int argc, char *argv[])
             wtime.calc_soft_force_step += time_tmp;
             wtime.calc_soft_force += time_tmp;
 #endif
+            //ここで1回目のsoftチェック
+            //acc_phi_output(system_grav,time_sys,fout_info2,true);
             //NList.initializeList(system_grav);
             correctForceLongInitial(system_grav, tree_grav, NList, n_ngb_tot, n_with_ngb);
+
+            //ここで2回目のsoftチェック  粒子情報を出力する
+            acc_phi_output(system_grav,time_sys,fout_info2,false);
+
+            //系のエネルギーに関する情報を出力する
+            e_now.calcEnergy_output(system_grav,time_sys,fout_info3);
+            fout_info3 << std::scientific << std::setprecision(8) << e_now.edisp << std::endl;
 #ifdef INDIRECT_TERM
-    calcIndirectTerm(system_grav);
+            calcIndirectTerm(system_grav);
 #endif
 #ifdef CALC_WTIME
             PS::Comm::barrier();
@@ -804,9 +836,16 @@ int main(int argc, char *argv[])
             wtime.neighbor_search += time_tmp;
 #endif
 #ifdef GAS_DRAG
+
 #pragma omp parallel for
             for(PS::S32 i=0; i<n_loc; i++) system_grav[i].acc += system_grav[i].acc_gd;
 #endif
+            if(mass_flag_glb)
+            {
+                e_now.calcEnergy_output(system_grav,time_sys,fout_info,true);
+                fout_info << std::scientific << std::setprecision(8) << e_now.edisp << std::endl;
+            }
+            
             if(n_col || mass_flag_glb || n_remove || istep % reset_step == reset_step-1)
             {
                 e_now.calcEnergy(system_grav);
@@ -891,6 +930,9 @@ int main(int argc, char *argv[])
 
     if ( PS::Comm::getRank() == 0 ) {
         fout_eng.close();
+        fout_info.close();
+        fout_info2.close();
+        fout_info3.close();
         fout_col.close();
         fout_rem.close();
     }

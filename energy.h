@@ -63,8 +63,11 @@ public:
     }
 
     template<class Tpsys>
-    PS::F64 calcEnergy_output(const Tpsys & pp,
-                    const bool clear=true){
+    void calcEnergy_output(const Tpsys & pp,
+                           PS::F64 time_sys,
+                           std::ofstream & fp,
+                           bool flag){
+        bool clear = true;
         if ( clear ) etot = ekin = ephi_sun = ephi_planet = ephi = ephi_d = 0.0;
 
         PS::F64 ekin_loc = 0.0;
@@ -96,13 +99,106 @@ public:
         ephi_d   += PS::Comm::getSum(ephi_d_loc);
         ephi_planet =  ephi + ephi_d;
         etot = ekin + ephi_sun + ephi_planet;
-        return etot;
+        if(flag)
+        {
+            fp << std::scientific<<std::setprecision(8)<<"after crossing OMF"<< "\t" <<time_sys << "\t"
+               << ekin << "\t" << ephi_sun << "\t" << ephi  << "\t"
+               << ephi_d << "\t" << ephi_planet << "\t"
+               << etot<< std::endl;
+        }
+        else
+        {
+            fp << std::scientific<<std::setprecision(8)<<"before crossing OMF"<< "\t" <<time_sys << "\t"
+               << ekin << "\t" << ephi_sun << "\t" << ephi  << "\t"
+               << ephi_d << "\t" << ephi_planet << "\t"
+               << etot<< std::endl;
+        }
+        for(PS::S32 i = 0; i < n_loc; i++)
+        {
+            fp  << std::scientific<<std::setprecision(16)
+                << time_sys << "\t" << pp[i].id << "\t" << pp[i].mass  << "\t"
+                << pp[i].pos.x << "\t" << pp[i].pos.y  << "\t" << pp[i].pos.z <<"\t"
+                << pp[i].vel.x << "\t" << pp[i].vel.y  << "\t" << pp[i].vel.z <<"\t"
+                <<0.5*pp[i].mass*(pp[i].vel.x*pp[i].vel.x+pp[i].vel.y*pp[i].vel.y)<<"\t"
+                <<sqrt(pp[i].pos.x*pp[i].pos.x+pp[i].pos.y*pp[i].pos.y)<<"\t"
+                << pp[i].phi << "\t" << pp[i].phi_d << "\t" << pp[i].phi_s<< "\t"
+                << std::endl;
+        }
+    }
+    
+    template<class Tpsys>
+    void calcEnergy_output(const Tpsys & pp,
+                           PS::F64 time_sys,
+                           std::ofstream & fp){
+        bool clear = true;
+        if ( clear ) etot = ekin = ephi_sun = ephi_planet = ephi = ephi_d = 0.0;
+
+        PS::F64 ekin_loc = 0.0;
+        PS::F64 ephi_sun_loc = 0.0;
+        PS::F64 ephi_loc = 0.0;
+        PS::F64 ephi_d_loc = 0.0;
+        
+        const PS::S32 n_loc = pp.getNumberOfParticleLocal();
+        for(PS::S32 i = 0; i < n_loc; i++){
+            ekin_loc     += pp[i].mass * pp[i].vel * pp[i].vel;
+            ephi_sun_loc += pp[i].mass * pp[i].phi_s;
+#ifndef CORRECT_NEIGHBOR
+            ephi_loc     += pp[i].mass * pp[i].phi;
+#else
+            ephi_loc     += pp[i].mass * (pp[i].phi + pp[i].phi_correct);
+#endif
+            ephi_d_loc   += pp[i].mass * pp[i].phi_d;
+        }
+        ekin_loc *= 0.5;
+        ephi_loc *= 0.5;
+        ephi_d_loc *= 0.5;
+
+        ekin     += PS::Comm::getSum(ekin_loc);
+#ifdef INDIRECT_TERM
+        ekin     += getIndirectEnergy(pp);
+#endif
+        ephi_sun += PS::Comm::getSum(ephi_sun_loc);
+        ephi     += PS::Comm::getSum(ephi_loc);
+        ephi_d   += PS::Comm::getSum(ephi_d_loc);
+        ephi_planet =  ephi + ephi_d;
+        etot = ekin + ephi_sun + ephi_planet;
+ 
+        fp  <<std::fixed<< time_sys << "\t"<<std::scientific<<std::setprecision(8)
+            << ekin << "\t" << ephi_sun << "\t" << ephi  << "\t"
+            << ephi_d << "\t" << ephi_planet << "\t"
+            << etot<< "\t";
     }
     
     PS::F64 calcEnergyError(const Energy e_init){
         //return (etot - e_init.etot - edisp)/e_init.etot;
         return (etot - e_init.etot - edisp)/etot;   //散逸エネルギーのものを引くとかなり小さな値になるはずで、そうなるとエネルギー保存がしっかりされていることがわかる(大体10^-8くらいであればよい)
     }
+
+
+        template<class Tpsys>
+    void check_gas_drag_energy_change(const Tpsys & pp,
+                           PS::F64 dekin_d,
+                           PS::F64 edisp_gd,
+                           PS::F64 time_sys,
+                           std::ofstream & fp){
+        
+        fp  <<std::fixed<< time_sys << "\t"<<std::scientific<<std::setprecision(8)
+            << dekin_d << "\t" << edisp_gd
+            << std::endl;
+
+        for(PS::S32 i = 0; i < n_loc; i++)
+        {
+            fp  << std::scientific<<std::setprecision(16)
+                << pp[i].id << "\t" << pp[i].mass  << "\t"
+                << pp[i].pos.x << "\t" << pp[i].pos.y  << "\t" << pp[i].pos.z <<"\t"
+                << pp[i].vel.x << "\t" << pp[i].vel.y  << "\t" << pp[i].vel.z <<"\t"
+                <<0.5*pp[i].mass*(pp[i].vel.x*pp[i].vel.x+pp[i].vel.y*pp[i].vel.y)<<"\t"
+                <<sqrt(pp[i].pos.x*pp[i].pos.x+pp[i].pos.y*pp[i].pos.y)
+                << std::endl;
+        }
+
+    }
+
 };
 
 class FileHeader{
