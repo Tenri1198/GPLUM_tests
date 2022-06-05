@@ -201,6 +201,7 @@ public:
     PS::F64vec jerk_d; // jerk by planet
     PS::F64vec jerk_s; // jerk by sun
     bool flag_gd;   //粒子がOMFに入ると0にする
+    PS::F64 mass_increase;
 #ifdef INTEGRATE_6TH_SUN
     PS::F64vec acc_;
     PS::F64vec snap_s;
@@ -442,7 +443,8 @@ public:
         snap_s    = fp.snap_s;
 #endif
         acc_gd    = fp.acc_gd;
-        flag_gd   = fp.flag_gd;     
+        flag_gd   = fp.flag_gd;
+        mass_increase =  fp.mass_increase;     
         phi       = fp.phi;
         phi_d     = fp.phi_d;
         phi_s     = fp.phi_s;
@@ -500,6 +502,7 @@ public:
             errorMessage("The particle data have NOT been correctly read.");
             PS::Abort();
         }
+
 #ifdef MERGE_BINARY
         isBinary = (bool)(Flag & (1<<0));
 #endif
@@ -519,6 +522,15 @@ public:
             errorMessage("The particle data have NOT been correctly written.");
             PS::Abort();
         }   
+        /*if ( !fprintf(fp, "%lld\t%20.15e\t%20.15e\t%20.15e\t%20.15e\t%20.15e\t%20.15e\t%20.15e\t%20.15e\t%20.15e\t%d\t%d\n",
+                      this->id, this->mass, this->r_planet, this->f, 
+                      this->pos.x, this->pos.y, this->pos.z,
+                      this->vel.x, this->vel.y, this->vel.z,
+                      this->neighbor, Flag) ) {
+            //this->r_out, this->r_search) ){
+            errorMessage("The particle data have NOT been correctly written.");
+            PS::Abort();
+        }  */
     }
     void readBinary(FILE* fp) {
         FPGrav buf;
@@ -732,6 +744,7 @@ public:
         xp   = fp.xp;
         vp   = fp.vp;
         flag_gd = fp.flag_gd;
+        mass_increase = fp.mass_increase;
 #ifdef INTEGRATE_6TH_SUN
         s0_s   = fp.s0_s;
         ap     = fp.ap;
@@ -758,6 +771,7 @@ public:
         a0_d = j0_d = 0.;
         xp   = vp   = 0.;
         flag_gd = fp.flag_gd;
+        mass_increase = fp.mass_increase;
 #ifdef INTEGRATE_6TH_SUN
         s0_s   = 0;
         ap     = 0;
@@ -786,6 +800,7 @@ public:
             xp   = fp.xp;
             vp   = fp.vp;
             flag_gd = fp.flag_gd;
+            mass_increase = fp.mass_increase;
 #ifdef INTEGRATE_6TH_SUN
             s0_s   = fp.s0_s;
             ap     = fp.ap;
@@ -816,6 +831,7 @@ public:
             a0_d = j0_d = 0.;
             xp   = vp   = 0.;
             flag_gd = fp.flag_gd;
+            mass_increase = fp.mass_increase;
 #ifdef INTEGRATE_6TH_SUN
             s0_s   = 0;
             ap     = 0;

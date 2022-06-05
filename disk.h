@@ -245,15 +245,21 @@ public:
                 if(pp[i].r_planet<9.0/4.0*lambda)
                 {   
                     //std::cout<<" "<<Omega_K<<" "<<temp_m<<" "<<9/4*lambda*AU<<" "<<c_s<<" "<<scale_H<<" "<<rho_gas<<" "<<eta<<" "<<pp[i].r_planet*AU<<" "<<sqrt(u*u)<<" "<<pp[i].acc_gd<<std::endl;
-                    pp[i].acc_gd += -4.0 * M_PI/3.0 * sqrt(8.0/M_PI) * rho_gas * pp[i].r_planet * pp[i].r_planet * c_s * u/(5.029169181251e-26);
+                    /*pp[i].acc_gd += -4.0 * M_PI/3.0 * sqrt(8.0/M_PI) * rho_gas * pp[i].r_planet * pp[i].r_planet * c_s * u/(5.029169181251e-26);
                     pp[i].acc += 0.8*pp[i].acc_gd;
+                    */
+                    pp[i].acc_gd += 0.8*-4.0 * M_PI/3.0 * sqrt(8.0/M_PI) * rho_gas * pp[i].r_planet * pp[i].r_planet * c_s * u/(5.029169181251e-26);
+                    pp[i].acc += pp[i].acc_gd;
                 }      
                 //Stokes region
                 else
                 {   
                     //std::cout<<" "<<Omega_K<<" "<<temp_m<<" "<<9/4*lambda*AU<<" "<<c_s<<" "<<scale_H<<" "<<rho_gas<<" "<<eta<<" "<<pp[i].r_planet<<" "<<sqrt(u*u)<<" "<<pp[i].acc_gd<<std::endl;
-                    pp[i].acc_gd += -6.0 * M_PI * rho_gas * nu * pp[i].r_planet * u/(5.029169181251e-26);
+                    /*pp[i].acc_gd += -6.0 * M_PI * rho_gas * nu * pp[i].r_planet * u/(5.029169181251e-26);
                     pp[i].acc += 0.8*pp[i].acc_gd;
+                    */
+                    pp[i].acc_gd += 0.8*-6.0 * M_PI * rho_gas * nu * pp[i].r_planet * u/(5.029169181251e-26);
+                    pp[i].acc += pp[i].acc_gd;
                 }
             }
 	        else if(r>110.9149*pow(time,0.5732) && pp[i].flag_gd==1) //flagが立っていて、かつまだ降着が始まっていないものへのガス抵抗
@@ -264,14 +270,20 @@ public:
                 if(pp[i].r_planet<9.0/4.0*lambda)
                 {
                     //std::cout<<" "<<Omega_K<<" "<<temp_m<<" "<<9/4*lambda*AU<<" "<<c_s<<" "<<scale_H<<" "<<rho_gas<<" "<<eta<<" "<<pp[i].r_planet*AU<<" "<<sqrt(u*u)<<" "<<pp[i].acc_gd<<std::endl;
-                    pp[i].acc_gd += -4.0 * M_PI/3.0 * sqrt(8.0/M_PI) * rho_gas * pp[i].r_planet * pp[i].r_planet * c_s * u_new/(5.029169181251e-26);
+                    /*pp[i].acc_gd += -4.0 * M_PI/3.0 * sqrt(8.0/M_PI) * rho_gas * pp[i].r_planet * pp[i].r_planet * c_s * u_new/(5.029169181251e-26);
+                    pp[i].acc += 0.8*pp[i].acc_gd;
+                    */
+                    pp[i].acc_gd += 0.8*-4.0 * M_PI/3.0 * sqrt(8.0/M_PI) * rho_gas * pp[i].r_planet * pp[i].r_planet * c_s * u_new/(5.029169181251e-26);
                     pp[i].acc += pp[i].acc_gd;
                 }
                 //Stokes region
                 else
                 {
                     //std::cout<<" "<<Omega_K<<" "<<temp_m<<" "<<9/4*lambda*AU<<" "<<c_s<<" "<<scale_H<<" "<<rho_gas<<" "<<eta<<" "<<pp[i].r_planet<<" "<<sqrt(u*u)<<" "<<pp[i].acc_gd<<std::endl;
-                    pp[i].acc_gd += -6.0 * M_PI * rho_gas * nu * pp[i].r_planet * u_new/(5.029169181251e-26);
+                    /*pp[i].acc_gd += -6.0 * M_PI * rho_gas * nu * pp[i].r_planet * u_new/(5.029169181251e-26);
+                    pp[i].acc += 0.8*pp[i].acc_gd;
+                    */
+                    pp[i].acc_gd += 0.8*-6.0 * M_PI * rho_gas * nu * pp[i].r_planet * u_new/(5.029169181251e-26);
                     pp[i].acc += pp[i].acc_gd;
                 }
              }
